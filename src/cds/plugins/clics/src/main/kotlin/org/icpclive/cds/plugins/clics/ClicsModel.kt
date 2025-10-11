@@ -79,7 +79,7 @@ internal class ClicsModel {
         return when {
             mime.startsWith("image") -> MediaType.Image(url = href, width = width, height = height, filename = filename, hash = hash, tags = tag, mime = mime)
             mime.startsWith("audio") -> MediaType.Audio(url = href, filename = filename, hash = hash, tags = tag, mime = mime)
-            mime.startsWith("video/m2ts") -> MediaType.M2tsVideo(url = href, filename = filename, hash = hash, tags = tag, mime = mime)
+            mime.startsWith("video/m2ts") || mime.startsWith("video/mp2t") -> MediaType.M2tsVideo(url = href, filename = filename, hash = hash, tags = tag, mime = mime)
             mime.startsWith("application/vnd.apple.mpegurl") -> MediaType.HLSVideo(url = href, filename = filename, hash = hash, tags = tag, mime = mime)
             mime.startsWith("video") -> MediaType.Video(url = href, filename = filename, hash = hash, tags = tag, mime = mime)
             mime.startsWith("text") -> MediaType.Text(url = href, filename = filename, hash = hash, tags = tag, mime = mime)
