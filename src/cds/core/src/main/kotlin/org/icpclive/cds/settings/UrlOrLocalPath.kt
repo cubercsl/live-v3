@@ -94,7 +94,7 @@ internal class UrlOrLocalPathSerializer(
 
     internal val raw = UrlOrLocalPathSurrogate.Raw.serializer().map(
         onDeserialize = {
-            if (isHttpUrl(it.s)) {
+            if (isHttpUrl(it.s) || isWsUrl(it.s)) {
                 UrlOrLocalPath.Url(it.s)
             } else {
                 val fixedPath = localFilesDeserializationBase.parent.resolve(it.s).toAbsolutePath()
@@ -129,5 +129,6 @@ internal class UrlOrLocalPathSerializer(
 
     private companion object {
         private fun isHttpUrl(text: String) = text.startsWith("http://") || text.startsWith("https://")
+        private fun isWsUrl(text: String) = text.startsWith("ws://") || text.startsWith("wss://")
     }
 }

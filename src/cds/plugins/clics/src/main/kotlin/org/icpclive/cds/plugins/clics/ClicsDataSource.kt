@@ -185,7 +185,7 @@ internal class ClicsDataSource(val settings: ClicsSettings) : ContestDataSource 
                             acc
                         }
                     }
-                    if (mapped.startsWith("http://") || mapped.startsWith("https://")) {
+                    if (mapped.startsWith("http://") || mapped.startsWith("https://") || mapped.startsWith("ws:// ") || mapped.startsWith("wss://")) {
                         Url(mapped)
                     } else {
                         Url(

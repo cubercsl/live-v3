@@ -3,6 +3,7 @@ package org.icpclive.cds.ktor
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.*
+import io.ktor.client.plugins.websocket.*
 import java.security.cert.X509Certificate
 import javax.net.ssl.X509TrustManager
 
@@ -11,6 +12,7 @@ public fun NetworkSettings.createHttpClient(): HttpClient = createHttpClient {}
 public fun NetworkSettings.createHttpClient(block: HttpClientConfig<*>.() -> Unit, ): HttpClient =
     HttpClient(CIO) {
         install(HttpTimeout)
+        install(WebSockets)
         engine {
             https {
                 if (allowUnsecureConnections) {
