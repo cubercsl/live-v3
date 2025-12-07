@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Editor, { OnMount, OnChange, Monaco } from "@monaco-editor/react";
 
 type JSONSchema = Record<string, unknown>;
@@ -16,10 +16,12 @@ function JsonCodeEditor({
 }: JsonEditorProps): React.ReactElement {
     const editorRef = useRef<unknown | null>(null);
     const monacoRef = useRef<Monaco | null>(null);
+    const [monacoInstance, setMonacoInstance] = useState<Monaco | null>(null);
 
     const handleMount: OnMount = (editor, monaco) => {
         editorRef.current = editor;
         monacoRef.current = monaco;
+        setMonacoInstance(monaco);
 
         const modelUri = "foo://admin/advanced.json";
         const model = monaco.editor.createModel(
@@ -44,7 +46,7 @@ function JsonCodeEditor({
 
     // Update JSON schema diagnostics when schema changes
     useEffect(() => {
-        const monaco = monacoRef.current;
+        const monaco = monacoInstance;
         if (!monaco) return;
         monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
             ...monaco.languages.json.jsonDefaults.diagnosticsOptions,
@@ -59,7 +61,7 @@ function JsonCodeEditor({
             ],
             validate: true,
         });
-    }, [schema]);
+    }, [schema, monacoInstance]);
 
     return <Editor language="json" onMount={handleMount} onChange={onChange} />;
 }
