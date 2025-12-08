@@ -1,6 +1,6 @@
-import React, { useEffect } from "react";
-import { useTransition } from "react-transition-state";
-import styled, { keyframes } from "styled-components";
+import React, { useEffect, useRef } from "react";
+import { useTransitionMap } from "react-transition-state";
+import styled, { css, keyframes, type Keyframes } from "styled-components";
 import c from "../../../config";
 import { pushLog } from "@/redux/debug";
 import { startScrolling, stopScrolling } from "@/redux/ticker";
@@ -30,12 +30,12 @@ const rowDisappear = keyframes`
   }
 `;
 
-const transitionProps = {
+const transitionProps: Record<string, Keyframes> = {
     entering: rowAppear,
     exiting: rowDisappear,
 };
 
-const TickerRowContainer = styled.div<{ animation: string }>`
+const TickerRowContainer = styled.div<{ animation?: Keyframes }>`
     position: absolute;
 
     overflow: hidden;
@@ -52,14 +52,6 @@ const TickerRowContainer = styled.div<{ animation: string }>`
         ${c.TICKER_SCROLL_TRANSITION_TIME}ms;
     animation-fill-mode: forwards;
 `;
-
-const TickerRow = ({ children, state }) => {
-    return (
-        <TickerRowContainer animation={transitionProps[state]}>
-            {children}
-        </TickerRowContainer>
-    );
-};
 
 const SingleTickerWrap = styled.div<{
     justify?: string;
@@ -104,40 +96,90 @@ export const SingleTickerRows = ({ part }) => {
     const isFirst = useAppSelector(
         (state) => state.ticker.tickers[part].isFirst,
     );
-    const [transition, toggle] = useTransition({
-        timeout: c.TICKER_SCROLL_TRANSITION_TIME,
-        mountOnEnter: true,
-        unmountOnExit: true,
-    });
+    const { stateMap, setItem, toggle, toggleAll, deleteItem } =
+        useTransitionMap<string>({
+            timeout: c.TICKER_SCROLL_TRANSITION_TIME,
+            mountOnEnter: true,
+            unmountOnExit: true,
+        });
+    const initializedKeysRef = useRef<Set<string>>(new Set());
 
     useEffect(() => {
-        toggle(!!curMessage);
-    }, [curMessage, toggle]);
+        if (!curMessage) {
+            toggleAll(false);
+            return;
+        }
 
-    if (!curMessage) {
+        const messageId = String(curMessage.id);
+
+        if (!initializedKeysRef.current.has(messageId)) {
+            setItem(messageId, { initialEntered: isFirst });
+            initializedKeysRef.current.add(messageId);
+        }
+
+        toggle(messageId, true);
+    }, [curMessage, isFirst, setItem, toggle, toggleAll]);
+
+    useEffect(() => {
+        const unmountedKeys: string[] = [];
+        stateMap.forEach((state, key) => {
+            if (!state.isMounted) {
+                unmountedKeys.push(key);
+            }
+        });
+
+        if (unmountedKeys.length === 0) {
+            return;
+        }
+
+        unmountedKeys.forEach((key) => {
+            initializedKeysRef.current.delete(key);
+            deleteItem(key);
+        });
+    }, [stateMap, deleteItem]);
+
+    const allMessages = useAppSelector((state) => state.ticker.messages);
+
+    const tickerRows = Array.from(stateMap.entries())
+        .map(([key, transition]) => {
+            if (!transition.isMounted) {
+                return null;
+            }
+
+            const message = allMessages[key];
+            if (!message) {
+                return null;
+            }
+
+            const widget =
+                widgetTypes[message.type as keyof typeof widgetTypes];
+            if (!widget) {
+                dispatch(
+                    pushLog(`ERROR: Unknown ticker type: ${message.type}`),
+                );
+            }
+            const TickerComponent = widget ?? DefaultTicker;
+
+            return (
+                <TickerRowContainer
+                    key={key}
+                    animation={transitionProps[transition.status]}
+                >
+                    <TickerComponent
+                        tickerSettings={message.settings}
+                        state={transition.status}
+                        part={part}
+                    />
+                </TickerRowContainer>
+            );
+        })
+        .filter(Boolean);
+
+    if (tickerRows.length === 0) {
         return null;
     }
 
-    const TickerComponent = widgetTypes[curMessage.type] ?? DefaultTicker;
-    if (TickerComponent === undefined) {
-        dispatch(pushLog(`ERROR: Unknown ticker type: ${curMessage.type}`));
-    }
-    const sanitizedState =
-        isFirst && transition.status === "entering"
-            ? "entered"
-            : transition.status;
-
-    return (
-        transition.isMounted && (
-            <TickerRow state={sanitizedState}>
-                <TickerComponent
-                    tickerSettings={curMessage.settings}
-                    state={sanitizedState}
-                    part={part}
-                />
-            </TickerRow>
-        )
-    );
+    return <>{tickerRows}</>;
 };
 
 const ShortTickerGrid = styled.div`
