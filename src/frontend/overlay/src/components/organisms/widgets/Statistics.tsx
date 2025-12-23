@@ -36,10 +36,12 @@ const Header = styled.div`
     color: white;
 `;
 const Title = styled.div`
+    font-family: ${c.GLOBAL_DEFAULT_FONT_FAMILY}, serif;
     font-weight: ${c.GLOBAL_DEFAULT_FONT_WEIGHT_BOLD};
 `;
 
 const Caption = styled.div`
+    font-family: ${c.GLOBAL_DEFAULT_FONT_FAMILY}, serif;
     flex-grow: 1;
 `;
 
