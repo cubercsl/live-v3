@@ -37,17 +37,17 @@ export function Overlay({
                 ...state,
                 scaleFactor: ref.offsetWidth / FULL_WIDTH,
             }),
-        [setState],
+        [state, setState],
     );
 
     const onDrag = useCallback<NonNullable<RndProps["onDrag"]>>(
-        (_e, ref) =>
+        (_e, data) =>
             setState({
                 ...state,
-                offsetX: ref.lastX,
-                offsetY: ref.lastY,
+                offsetX: data.x,
+                offsetY: data.y,
             }),
-        [setState],
+        [state, setState],
     );
 
     if (!isOverlayPreviewShown) return null;
