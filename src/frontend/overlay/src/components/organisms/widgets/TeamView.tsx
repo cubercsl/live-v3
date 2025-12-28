@@ -279,7 +279,6 @@ const PVPToolDataWrapper = styled.div<PVPWrapperProps>`
     z-index: 3;
 `;
 
-
 const PVPSecondaryMediaWrapper = styled.div<PVPWrapperProps>`
     grid-column: 2;
     grid-row: ${(props) => (props.$isTop ? "1 / 2" : "4 / 5")};

@@ -425,15 +425,16 @@ const TeamViewManager: React.FC = () => {
         singleService.teams().then((ts) => setRawTeams([AUTOMODE_TEAM, ...ts]));
     }, [singleService]);
 
-    const [teamsAvailableMedias, teamsHasAchievement, teamsHasToolData] = useMemo(() => {
-        const medias = new Set<string>();
-        const hasAchievement = rawTeams.some((t) => t.medias.achievement);
-        const hasToolData = rawTeams.some((t) => t.medias.toolData);
-        rawTeams.forEach((t) =>
-            Object.keys(t.medias).forEach((m) => medias.add(m)),
-        );
-        return [[...medias], hasAchievement, hasToolData];
-    }, [rawTeams]);
+    const [teamsAvailableMedias, teamsHasAchievement, teamsHasToolData] =
+        useMemo(() => {
+            const medias = new Set<string>();
+            const hasAchievement = rawTeams.some((t) => t.medias.achievement);
+            const hasToolData = rawTeams.some((t) => t.medias.toolData);
+            rawTeams.forEach((t) =>
+                Object.keys(t.medias).forEach((m) => medias.add(m)),
+            );
+            return [[...medias], hasAchievement, hasToolData];
+        }, [rawTeams]);
 
     const [isMultipleMode, setIsMultipleMode] = useState<boolean>(false);
     const [selectedInstance, setSelectedInstance] = useState<
