@@ -741,6 +741,7 @@ export interface OverlayTeamViewSettings {
   secondary: MediaType[];
   showTaskStatus: boolean;
   achievement: MediaType[];
+  toolData: MediaType[];
   showTimeLine: boolean;
   position: TeamViewPosition;
 }
@@ -1050,6 +1051,7 @@ export interface ExternalTeamViewSettings {
   mediaTypes?: TeamMediaType[];
   showTaskStatus?: boolean;
   showAchievement?: boolean;
+  showToolData?: boolean;
   showTimeLine?: boolean;
   position?: TeamViewPosition;
 }

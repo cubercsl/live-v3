@@ -17,6 +17,7 @@ class TeamViewController(manager: Manager<in TeamViewWidget>, val position: Team
         val primary = content.getOrNull(0).orEmpty()
         val secondary = content.getOrNull(1).orEmpty()
         val achievement = teamInfo?.medias?.get(TeamMediaType.ACHIEVEMENT)?.takeIf { settings.showAchievement }.orEmpty()
+        val toolData = teamInfo?.medias?.get(TeamMediaType.TOOL_DATA)?.takeIf { settings.showToolData }.orEmpty()
 
         return TeamViewWidget(
             OverlayTeamViewSettings(
@@ -25,6 +26,7 @@ class TeamViewController(manager: Manager<in TeamViewWidget>, val position: Team
                 secondary,
                 settings.showTaskStatus,
                 achievement,
+                toolData,
                 settings.showTimeLine,
                 position
             )

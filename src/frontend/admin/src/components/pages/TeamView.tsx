@@ -425,13 +425,14 @@ const TeamViewManager: React.FC = () => {
         singleService.teams().then((ts) => setRawTeams([AUTOMODE_TEAM, ...ts]));
     }, [singleService]);
 
-    const [teamsAvailableMedias, teamsHasAchievement] = useMemo(() => {
+    const [teamsAvailableMedias, teamsHasAchievement, teamsHasToolData] = useMemo(() => {
         const medias = new Set<string>();
         const hasAchievement = rawTeams.some((t) => t.medias.achievement);
+        const hasToolData = rawTeams.some((t) => t.medias.toolData);
         rawTeams.forEach((t) =>
             Object.keys(t.medias).forEach((m) => medias.add(m)),
         );
-        return [[...medias], hasAchievement];
+        return [[...medias], hasAchievement, hasToolData];
     }, [rawTeams]);
 
     const [isMultipleMode, setIsMultipleMode] = useState<boolean>(false);
@@ -446,6 +447,7 @@ const TeamViewManager: React.FC = () => {
     );
     const [statusShown, setStatusShown] = useState<boolean>(true);
     const [achievementShown, setAchievementShown] = useState<boolean>(false);
+    const [toolDataShown, setToolDataShown] = useState<boolean>(false);
     const [timeLineShown, setTimeLineShown] = useState<boolean>(true);
 
     const [allowedMediaTypes, disableMediaTypes] = useMemo(
@@ -522,18 +524,22 @@ const TeamViewManager: React.FC = () => {
             if (rawTeams.some((t) => t.medias.achievement)) {
                 setAchievementShown(true);
             }
+            if (rawTeams.some((t) => t.medias.toolData)) {
+                setToolDataShown(true);
+            }
             setTimeLineShown(true);
         }
     }, [status, mediaType1, mediaType2, rawTeams, variant, allowedMediaTypes]);
 
     const onShow = useCallback(() => {
-        const settings = {
+        const settings: ExternalTeamViewSettings = {
             mediaTypes: [mediaType1, mediaType2].filter(
                 (i): i is TeamMediaType => Boolean(i),
             ),
             teamId: selectedTeamId,
             showTaskStatus: statusShown,
             showAchievement: achievementShown && variant !== "split",
+            showToolData: toolDataShown && variant !== "split",
             showTimeLine:
                 timeLineShown && (variant === "single" || variant === "pvp"),
         };
@@ -710,6 +716,29 @@ const TeamViewManager: React.FC = () => {
                                                         ? selectedTeam.medias
                                                               .achievement
                                                         : teamsHasAchievement)
+                                                }
+                                                sx={{
+                                                    justifyContent:
+                                                        "flex-start",
+                                                }}
+                                            />
+                                        </Grid>
+                                        <Grid size={{ xs: 10, sm: 4 }}>
+                                            <FormLabel component="legend">
+                                                Tool data
+                                            </FormLabel>
+                                        </Grid>
+                                        <Grid size={{ xs: 2, sm: 8 }}>
+                                            <ShowPresetButton
+                                                checked={toolDataShown}
+                                                onClick={(v) =>
+                                                    setToolDataShown(v)
+                                                }
+                                                disabled={
+                                                    !(selectedTeam?.id
+                                                        ? selectedTeam.medias
+                                                              .toolData
+                                                        : teamsHasToolData)
                                                 }
                                                 sx={{
                                                     justifyContent:
