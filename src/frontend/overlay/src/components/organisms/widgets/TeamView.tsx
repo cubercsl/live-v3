@@ -65,6 +65,7 @@ type CommonContentProps = {
     setPrimaryLoaded: Dispatch<SetStateAction<boolean>>;
     setSecondaryLoaded: Dispatch<SetStateAction<boolean>>;
     setAchievementLoaded: Dispatch<SetStateAction<boolean>>;
+    setToolDataLoaded: Dispatch<SetStateAction<boolean>>;
 } & OverlayTeamViewSettings;
 
 const PrimaryMediaWrapper = styled.div`
@@ -85,6 +86,14 @@ const AchievementWrapper = styled.div<AchievementWrapperProps>`
     height: 100%;
     overflow: hidden;
     z-index: 2;
+`;
+
+const ToolDataWrapper = styled.div`
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    z-index: 3;
 `;
 
 const TeamViewGrid = styled.div<{ $secondaryY: number; $achievementY: number }>`
@@ -155,6 +164,8 @@ const SingleContent = ({
     setSecondaryLoaded,
     achievement,
     setAchievementLoaded,
+    toolData,
+    setToolDataLoaded,
     showTaskStatus,
     showTimeLine,
     location,
@@ -167,6 +178,7 @@ const SingleContent = ({
     const hasPrimary = (primary?.length ?? 0) > 0;
     const hasSecondary = (secondary?.length ?? 0) > 0;
     const hasAchievement = (achievement?.length ?? 0) > 0;
+    const hasToolData = (toolData?.length ?? 0) > 0;
     return (
         <>
             {hasPrimary && (
@@ -190,6 +202,14 @@ const SingleContent = ({
                             />
                         </AchievementWrapper>
                     </AchievementGridWrapper>
+                )}
+                {hasToolData && (
+                    <ToolDataWrapper>
+                        <TeamMediaHolder
+                            media={toolData[0]}
+                            onLoadStatus={setToolDataLoaded}
+                        />
+                    </ToolDataWrapper>
                 )}
                 {hasSecondary && (
                     <SecondaryMediaWrapper
@@ -249,6 +269,12 @@ const PVPPrimaryMediaWrapper = styled.div<PVPWrapperProps>`
     grid-row: ${(props) => (props.$isTop ? "1 / 4" : "2 / 5")};
 `;
 
+const PVPToolDataWrapper = styled.div<PVPWrapperProps>`
+    grid-column: 1 / 2;
+    grid-row: ${(props) => (props.$isTop ? "1 / 4" : "2 / 5")};
+    z-index: 3;
+`;
+
 const PVPSecondaryMediaWrapper = styled.div<PVPWrapperProps>`
     grid-column: 2;
     grid-row: ${(props) => (props.$isTop ? "1 / 2" : "4 / 5")};
@@ -301,6 +327,8 @@ const PVPContent = ({
     setSecondaryLoaded,
     achievement,
     setAchievementLoaded,
+    toolData,
+    setToolDataLoaded,
     showTaskStatus,
     showTimeLine,
     location,
@@ -316,6 +344,7 @@ const PVPContent = ({
     const hasPrimary = (primary?.length ?? 0) > 0;
     const hasSecondary = (secondary?.length ?? 0) > 0;
     const hasAchievement = (achievement?.length ?? 0) > 0;
+    const hasToolData = (toolData?.length ?? 0) > 0;
     return (
         <>
             <PVPGrid
@@ -348,6 +377,14 @@ const PVPContent = ({
                             />
                         </PVPAchievementInnerWrapper>
                     </PVPAchievementWrapper>
+                )}
+                {hasToolData && (
+                    <PVPToolDataWrapper $isTop={isTop}>
+                        <TeamMediaHolder
+                            media={toolData[0]}
+                            onLoadStatus={setToolDataLoaded}
+                        />
+                    </PVPToolDataWrapper>
                 )}
                 {showTimeLine && (
                     <PVPAchievementWrapper $isTop={isTop}>
@@ -487,19 +524,22 @@ export const TeamViewSingleContent: React.FC<TeamViewSingleContentProps> = ({
     transitionState,
     onLoaded,
 }) => {
-    const { primary, secondary, achievement, position } = settings;
+    const { primary, secondary, achievement, toolData, position } = settings;
     const location = c.WIDGET_POSITIONS[widgetLocationId] as LocationRectangle;
     const variant = teamViewVariant(position);
 
     const [primaryLoaded, setPrimaryLoaded] = useState(false);
     const [secondaryLoaded, setSecondaryLoaded] = useState(false);
     const [achievementLoaded, setAchievementLoaded] = useState(false);
+    const [toolDataLoaded, setToolDataLoaded] = useState(false);
     const isPrimaryEmpty = (primary?.length ?? 0) === 0;
     const isSecondaryEmpty = (secondary?.length ?? 0) === 0;
     const isAchievementEmpty = (achievement?.length ?? 0) === 0;
+    const isToolDataEmpty = (toolData?.length ?? 0) === 0;
     const isLoaded =
         (isPrimaryEmpty || primaryLoaded) &&
         (isSecondaryEmpty || secondaryLoaded || true) &&
+        (isToolDataEmpty || toolDataLoaded || true) &&
         (variant === "single" || isAchievementEmpty || achievementLoaded);
 
     useLayoutEffect(() => {
@@ -513,6 +553,7 @@ export const TeamViewSingleContent: React.FC<TeamViewSingleContentProps> = ({
         setPrimaryLoaded,
         setSecondaryLoaded,
         setAchievementLoaded,
+        setToolDataLoaded,
         location,
     };
     return (

@@ -43,6 +43,14 @@ const VideoContainer = styled.video<{ $vertical?: boolean }>`
     overflow: hidden;
 `;
 
+const ObjectContainer = styled.object`
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+`;
+
 export const ImageMediaHolder = ({
     onLoadStatus,
     className,
@@ -352,12 +360,17 @@ export const WebRTCProxyMediaHolder = ({
 
 export const ObjectMediaHolder = ({
     onLoadStatus,
+    className,
     media: { url },
 }: MediaHolderProps<MediaType.Object>) => {
     useEffect(() => {
         onLoadStatus(true);
     }, [onLoadStatus]);
-    return <object data={url} type="image/svg+xml"></object>;
+    return (
+        <MediaWrapper className={className}>
+            <ObjectContainer data={url} type="image/svg+xml" />
+        </MediaWrapper>
+    );
 };
 
 export const TeamMediaHolder = ({

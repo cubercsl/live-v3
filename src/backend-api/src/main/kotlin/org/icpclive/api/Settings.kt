@@ -49,6 +49,7 @@ data class ExternalTeamViewSettings(
     val mediaTypes: List<TeamMediaType?> = emptyList(),
     val showTaskStatus: Boolean = true,
     val showAchievement: Boolean = false,
+    val showToolData: Boolean = false,
     val showTimeLine: Boolean = false,
     val position: TeamViewPosition = TeamViewPosition.SINGLE,
 ) : ObjectSettings
@@ -60,6 +61,7 @@ data class OverlayTeamViewSettings(
     val secondary: List<MediaType>,
     val showTaskStatus: Boolean,
     val achievement: List<MediaType>,
+    val toolData: List<MediaType>,
     val showTimeLine: Boolean,
     val position: TeamViewPosition,
 ) : ObjectSettings
