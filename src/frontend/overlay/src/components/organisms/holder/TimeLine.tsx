@@ -562,6 +562,7 @@ export function TimeLine({
         }
 
         async function fetchKeylogData() {
+            /*
             const events = await fetchNDJSON();
             if (events.length === 0) return;
 
@@ -591,8 +592,28 @@ export function TimeLine({
                     newKeylog[index] += pressesCount;
                 }
             });
-
-            setKeylog(newKeylog.map((v) => v * pressesPerMinuteFactor));
+            */
+            // Disable local aggregation and use server-side (prometheus based) aggregation
+            try {
+                const url = new URL(keylogUrl);
+                url.searchParams.append("start", (startTime / 1000).toString());
+                url.searchParams.append(
+                    "end",
+                    (
+                        (startTime + contestInfo!.contestLengthMs) /
+                        1000
+                    ).toString(),
+                );
+                url.searchParams.append(
+                    "step",
+                    (c.KEYLOG_INTERVAL_LENGTH / 1000).toString(),
+                );
+                const response = await fetch(url);
+                const data = await response.json();
+                setKeylog(data);
+            } catch (e) {
+                console.error(e);
+            }
         }
 
         fetchKeylogData();
