@@ -42,6 +42,7 @@ export const Scoreboard = ({ tickerSettings, state }) => {
     const order = useAppSelector((state) =>
         state.scoreboard[OptimismLevel.normal].order.slice(from - 1, to),
     );
+    const gapRowsPerPage = Math.max(0, c.TICKER_SCOREBOARD_ROWS);
     const nrows = Math.ceil(order.length / 4 / c.TICKER_SCOREBOARD_ROWS);
     useEffect(() => {
         if (state !== "entering" && order.length > 0) {
@@ -66,7 +67,7 @@ export const Scoreboard = ({ tickerSettings, state }) => {
     return (
         <ScoreboardWrap
             nrows={nrows * 2}
-            translateY={`calc(${-row * 100}% - ${2 * row} * ${c.TICKER_SCOREBOARD_GAP})`}
+            translateY={`calc(${-row * 100}% - ${row * gapRowsPerPage} * ${c.TICKER_SCOREBOARD_GAP})`}
         >
             {order.map((teamId) => (
                 <TickerScoreboardContestantInfo
