@@ -7,14 +7,20 @@ import io.ktor.http.*
 import io.ktor.utils.io.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.withContext
 import org.icpclive.cds.settings.UrlOrLocalPath
 import org.icpclive.cds.util.getLogger
 
-internal fun getLineFlow(networkSettings: NetworkSettings, url: UrlOrLocalPath): Flow<String> = flow {
+internal fun getLineFlow(networkSettings: NetworkSettings, url: UrlOrLocalPath): Flow<String> = channelFlow {
     when (url) {
         is UrlOrLocalPath.Local -> {
-            url.value.toFile().useLines { lines ->
-                emitAll(lines.asFlow())
+            withContext(Dispatchers.IO) {
+                url.value.toFile().useLines { lines ->
+                    for (line in lines) {
+                        if (line.isEmpty()) continue
+                        send(line)
+                    }
+                }
             }
         }
 
@@ -36,7 +42,7 @@ internal fun getLineFlow(networkSettings: NetworkSettings, url: UrlOrLocalPath):
                 while (!channel.isClosedForRead) {
                     val line = channel.readLine() ?: continue
                     if (line.isEmpty()) continue
-                    emit(line)
+                    send(line)
                 }
             }
         }
