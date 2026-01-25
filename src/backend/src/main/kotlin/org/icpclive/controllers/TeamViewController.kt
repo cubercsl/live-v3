@@ -12,7 +12,9 @@ class TeamViewController(manager: Manager<in TeamViewWidget>, val position: Team
 
     override suspend fun constructWidget(settings: ExternalTeamViewSettings): TeamViewWidget {
         val teamInfo = DataBus.currentContestInfo().teams[settings.teamId]
-        val content = settings.mediaTypes.mapNotNull { teamInfo?.medias?.get(it) }.toList()
+        val content = settings.mediaTypes.map { type ->
+            type?.let { teamInfo?.medias?.get(it).orEmpty() } ?: emptyList()
+        }
 
         val primary = content.getOrNull(0).orEmpty()
         val secondary = content.getOrNull(1).orEmpty()

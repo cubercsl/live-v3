@@ -46,7 +46,7 @@ class TickerSettings : ObjectSettings
 @Serializable
 data class ExternalTeamViewSettings(
     val teamId: TeamId? = null,
-    val mediaTypes: List<TeamMediaType> = emptyList(),
+    val mediaTypes: List<TeamMediaType?> = emptyList(),
     val showTaskStatus: Boolean = true,
     val showAchievement: Boolean = false,
     val showTimeLine: Boolean = false,
