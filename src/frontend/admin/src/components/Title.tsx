@@ -53,6 +53,7 @@ interface TitleTableRowProps {
     onShow: () => void;
     onEdit: (data: TitleData) => unknown;
     onDelete: () => void;
+    onPreviewOpen?: (id: string | number) => void;
 }
 
 interface PreviewSVGDialogProps {
@@ -129,46 +130,56 @@ function PreviewSVGDialog({
     const [loading, setLoading] = useState<boolean>(false);
 
     useEffect(() => {
-        async function fetchPreview() {
-            if (open && !content) {
-                setLoading(true);
-                try {
-                    const response = await service.getPreview(id);
-                    let previewContent: string = "";
+        if (!open) {
+            return;
+        }
 
-                    // TODO: Freak solution
-                    if (typeof response === "string") {
-                        previewContent = response;
-                    } else if (response && typeof response === "object") {
-                        if (
-                            "url" in response &&
-                            typeof response.url === "string"
-                        ) {
-                            previewContent = response.url;
-                        } else if (
-                            "data" in response &&
-                            typeof response.data === "string"
-                        ) {
-                            previewContent = response.data;
-                        } else if (
-                            "content" in response &&
-                            typeof response.content === "string"
-                        ) {
-                            previewContent = response.content;
-                        } else {
-                            previewContent = String(response);
-                        }
+        let isMounted = true;
+
+        async function fetchPreview() {
+            setLoading(true);
+            try {
+                const response = await service.getPreview(id);
+                let previewContent: string = "";
+
+                // TODO: Freak solution
+                if (typeof response === "string") {
+                    previewContent = response;
+                } else if (response && typeof response === "object") {
+                    if ("url" in response && typeof response.url === "string") {
+                        previewContent = response.url;
+                    } else if (
+                        "data" in response &&
+                        typeof response.data === "string"
+                    ) {
+                        previewContent = response.data;
+                    } else if (
+                        "content" in response &&
+                        typeof response.content === "string"
+                    ) {
+                        previewContent = response.content;
+                    } else {
+                        previewContent = String(response);
                     }
+                }
+
+                if (isMounted) {
                     setContent(previewContent);
-                } catch (error) {
-                    console.error(`Failed to load preview: ${error}`);
-                } finally {
+                    setLoading(false);
+                }
+            } catch (error) {
+                console.error(`Failed to load preview: ${error}`);
+                if (isMounted) {
                     setLoading(false);
                 }
             }
         }
 
         fetchPreview();
+
+        return () => {
+            isMounted = false;
+        };
     }, [open, id]);
 
     function handleClose() {
@@ -194,6 +205,14 @@ function PreviewSVGDialog({
                             style={{ width: "100%", display: "block" }}
                             aria-label="SVG Preview"
                         />
+                    )}
+                    {!content && !loading && (
+                        <Stack
+                            alignItems="center"
+                            sx={{ py: 3, color: "text.secondary" }}
+                        >
+                            No preview available
+                        </Stack>
                     )}
                 </Card>
             </DialogContent>
@@ -426,19 +445,15 @@ export function TitleTableRow({
     onShow,
     onEdit,
     onDelete,
+    onPreviewOpen,
 }: TitleTableRowProps): React.ReactElement {
     const { editData, onClickEdit, onSubmitEdit, onChangeField } =
         usePresetTableRowDataState(data, onEdit);
 
-    const [previewDialogOpen, setPreviewDialogOpen] = useState<boolean>(false);
     const isEditMode = editData !== undefined;
 
     function handlePreviewOpen() {
-        setPreviewDialogOpen(true);
-    }
-
-    function handlePreviewClose() {
-        setPreviewDialogOpen(false);
+        onPreviewOpen?.(data.id);
     }
 
     const applyLeftPreset = createPresetUpdater(
@@ -453,67 +468,59 @@ export function TitleTableRow({
     );
 
     return (
-        <>
-            <PreviewSVGDialog
-                open={previewDialogOpen}
-                onClose={handlePreviewClose}
-                id={data.id}
+        <TableRow
+            key={data.id}
+            sx={{
+                backgroundColor: data.shown ? activeRowColor : undefined,
+            }}
+        >
+            <PresetSelectionCell
+                shown={data.shown}
+                onShow={onShow}
+                onLeftPresetSelect={applyLeftPreset}
+                onRightPresetSelect={applyRightPreset}
             />
 
-            <TableRow
-                key={data.id}
-                sx={{
-                    backgroundColor: data.shown ? activeRowColor : undefined,
-                }}
-            >
-                <PresetSelectionCell
-                    shown={data.shown}
-                    onShow={onShow}
-                    onLeftPresetSelect={applyLeftPreset}
-                    onRightPresetSelect={applyRightPreset}
-                />
+            <PresetsTableCell
+                value={data.settings.leftPreset}
+                editValue={editData?.settings?.leftPreset}
+                onChange={onChangeField("leftPreset")}
+                onSubmit={onSubmitEdit}
+                ValueEditor={TemplateEditor}
+            />
 
-                <PresetsTableCell
-                    value={data.settings.leftPreset}
-                    editValue={editData?.settings?.leftPreset}
-                    onChange={onChangeField("leftPreset")}
-                    onSubmit={onSubmitEdit}
-                    ValueEditor={TemplateEditor}
-                />
+            <PresetsTableCell
+                value={data.settings.rightPreset}
+                editValue={editData?.settings?.rightPreset}
+                onChange={onChangeField("rightPreset")}
+                onSubmit={onSubmitEdit}
+                ValueEditor={TemplateEditor}
+            />
 
-                <PresetsTableCell
-                    value={data.settings.rightPreset}
-                    editValue={editData?.settings?.rightPreset}
-                    onChange={onChangeField("rightPreset")}
-                    onSubmit={onSubmitEdit}
-                    ValueEditor={TemplateEditor}
-                />
+            <PresetsTableCell
+                value={data.settings.preset}
+                editValue={editData?.settings?.preset}
+                onChange={onChangeField("preset")}
+                onSubmit={onSubmitEdit}
+                ValueEditor={TemplateEditor}
+            />
 
-                <PresetsTableCell
-                    value={data.settings.preset}
-                    editValue={editData?.settings?.preset}
-                    onChange={onChangeField("preset")}
-                    onSubmit={onSubmitEdit}
-                    ValueEditor={TemplateEditor}
-                />
+            <PresetsTableCell
+                value={data.settings.data}
+                editValue={editData?.settings?.data}
+                ValueEditor={ParamsDataEditor}
+                onChange={onChangeField("data")}
+                onSubmit={onSubmitEdit}
+                valuePrinter={renderParamsData}
+            />
 
-                <PresetsTableCell
-                    value={data.settings.data}
-                    editValue={editData?.settings?.data}
-                    ValueEditor={ParamsDataEditor}
-                    onChange={onChangeField("data")}
-                    onSubmit={onSubmitEdit}
-                    valuePrinter={renderParamsData}
-                />
-
-                <ActionButtonsCell
-                    isEditMode={isEditMode}
-                    onPreviewOpen={handlePreviewOpen}
-                    onEditClick={onClickEdit}
-                    onDeleteClick={onDelete}
-                />
-            </TableRow>
-        </>
+            <ActionButtonsCell
+                isEditMode={isEditMode}
+                onPreviewOpen={handlePreviewOpen}
+                onEditClick={onClickEdit}
+                onDeleteClick={onDelete}
+            />
+        </TableRow>
     );
 }
 
@@ -524,6 +531,8 @@ export function Title(): React.ReactElement {
         errorHandlerWithSnackbar(enqueueSnackbar),
     );
 
+    const [previewId, setPreviewId] = useState<string | number | null>(null);
+
     const defaultRowData: TitleSettings = {
         preset: "",
         leftPreset: "",
@@ -531,8 +540,25 @@ export function Title(): React.ReactElement {
         data: {},
     };
 
+    function handlePreviewOpen(id: string | number) {
+        setPreviewId(id);
+    }
+
+    function handlePreviewClose() {
+        setPreviewId(null);
+    }
+
+    const TitleTableRowWithPreview = (props: TitleTableRowProps) => (
+        <TitleTableRow {...props} onPreviewOpen={handlePreviewOpen} />
+    );
+
     return (
         <Container maxWidth="lg" sx={{ pt: 2 }} className="Title">
+            <PreviewSVGDialog
+                open={previewId !== null}
+                onClose={handlePreviewClose}
+                id={previewId ?? 0}
+            />
             <PresetsManager<TitleSettings>
                 service={service}
                 tableKeys={["leftPreset", "rightPreset", "preset", "data"]}
@@ -543,7 +569,7 @@ export function Title(): React.ReactElement {
                     "Data",
                 ]}
                 defaultRowData={defaultRowData}
-                RowComponent={TitleTableRow}
+                RowComponent={TitleTableRowWithPreview}
             />
         </Container>
     );
