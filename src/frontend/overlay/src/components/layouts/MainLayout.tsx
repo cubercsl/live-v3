@@ -120,7 +120,9 @@ const useWidgets = () => {
 const WidgetWithTransition: React.FC<{
     obj: Widget;
     params: URLSearchParams;
-}> = ({ obj, params }) => {
+    isRemoving?: boolean;
+    onExited?: (widgetId: string) => void;
+}> = ({ obj, params, isRemoving = false, onExited }) => {
     const WidgetComponent = WIDGETS[obj.type];
     const location = c.WIDGET_POSITIONS[
         obj.widgetLocationId
@@ -134,33 +136,34 @@ const WidgetWithTransition: React.FC<{
         exit: true,
     });
 
-    const shouldShow = React.useMemo(() => {
-        if (WidgetComponent === undefined) {
-            return false;
-        }
+    let shouldShow = !isRemoving && WidgetComponent !== undefined;
+    if (shouldShow) {
         if (
             obj.type === "TeamLocatorWidget" &&
             obj.settings?.scene !== (params.get("scene") || undefined)
         ) {
-            return false;
-        }
-        if (params.get("scene") && obj.type !== "TeamLocatorWidget") {
-            return false;
-        }
-        if (
+            shouldShow = false;
+        } else if (params.get("scene") && obj.type !== "TeamLocatorWidget") {
+            shouldShow = false;
+        } else if (
             params.get("onlyWidgets") &&
             !params.get("onlyWidgets").split(",").includes(obj.widgetId)
         ) {
-            return false;
+            shouldShow = false;
         }
-        return true;
-    }, [WidgetComponent, obj, params]);
+    }
 
     React.useEffect(() => {
         toggle(shouldShow);
     }, [shouldShow, toggle]);
 
-    if (!shouldShow || !transition.isMounted) {
+    React.useEffect(() => {
+        if (isRemoving && !transition.isMounted) {
+            onExited?.(obj.widgetId);
+        }
+    }, [isRemoving, transition.isMounted, obj.widgetId, onExited]);
+
+    if (!transition.isMounted) {
         return null;
     }
 
@@ -186,14 +189,47 @@ const WidgetWithTransition: React.FC<{
 export const MainLayout = () => {
     const widgets = useWidgets();
     const params = useQueryParams();
+
+    const [prevWidgets, setPrevWidgets] = React.useState(widgets);
+    const [displayedWidgets, setDisplayedWidgets] = React.useState(widgets);
+
+    if (prevWidgets !== widgets) {
+        setPrevWidgets(widgets);
+
+        const currentIds = new Set(Object.keys(widgets));
+        const merged: Record<string, Widget> = { ...widgets };
+
+        for (const [id, widget] of Object.entries(displayedWidgets) as [
+            string,
+            Widget,
+        ][]) {
+            if (!currentIds.has(id)) {
+                merged[id] = widget;
+            }
+        }
+
+        setDisplayedWidgets(merged);
+    }
+
+    const handleExited = (widgetId: string) => {
+        setDisplayedWidgets((prev) => {
+            const { [widgetId]: _, ...rest } = prev; // eslint-disable-line @typescript-eslint/no-unused-vars
+            return rest;
+        });
+    };
+
+    const currentIds = new Set(Object.keys(widgets));
+
     return (
         <MainLayoutWrap>
             <StatusLightBulbs compact={true} />
-            {Object.values(widgets).map((obj) => (
+            {(Object.values(displayedWidgets) as Widget[]).map((widget) => (
                 <WidgetWithTransition
-                    key={obj.widgetId}
-                    obj={obj}
+                    key={widget.widgetId}
+                    obj={widget}
                     params={params}
+                    isRemoving={!currentIds.has(widget.widgetId)}
+                    onExited={handleExited}
                 />
             ))}
         </MainLayoutWrap>
