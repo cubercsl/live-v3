@@ -20,6 +20,7 @@ export interface CreateAndShowOptions {
 
 export class PresetWidgetService<
     S = Record<string, unknown>,
+    Preview = PresetPreview,
 > extends AbstractWidgetImpl<S> {
     constructor(
         apiPath: string,
@@ -99,11 +100,12 @@ export class PresetWidgetService<
         }
     }
 
-    async getPreview(presetId: string | number): Promise<PresetPreview> {
+    async getPreview(presetId: string | number): Promise<Preview> {
         try {
             return await this.apiGet(`/${presetId}/preview`);
         } catch (error) {
-            throw this.errorHandler("Failed to load preset preview")(error);
+            this.errorHandler("Failed to load preset preview")(error);
+            throw error;
         }
     }
 

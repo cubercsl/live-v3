@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { PresetWidgetService } from "./presetWidget";
 import { ErrorHandler } from "@shared/abstractWidget";
+import { Widget } from "@shared/api";
 
 export interface TitleTemplate {
     id: string | number;
@@ -11,7 +12,7 @@ export interface TitleTemplate {
 
 export class TitleWidgetService<
     S = Record<string, unknown>,
-> extends PresetWidgetService<S> {
+> extends PresetWidgetService<S, Widget.SvgWidget> {
     constructor(
         apiPath: string,
         errorHandler: ErrorHandler,

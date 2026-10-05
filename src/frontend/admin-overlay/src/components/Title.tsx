@@ -1,4 +1,11 @@
-import React, { ChangeEvent, useEffect, useState } from "react";
+import React, {
+    ChangeEvent,
+    createContext,
+    useContext,
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
 import Container from "@mui/material/Container";
 import { useSnackbar } from "notistack";
 import { errorHandlerWithSnackbar } from "shared-code/errors";
@@ -15,6 +22,7 @@ import {
     CircularProgress,
     Card,
     Stack,
+    Alert,
 } from "@mui/material";
 import ShowPresetButton from "./controls/ShowPresetButton.tsx";
 import Box from "@mui/material/Box";
@@ -32,7 +40,6 @@ import {
 import { PresetsManager } from "./PresetsManager.js";
 import { usePresetWidgetService } from "../services/presetWidget.js";
 import { useTitleWidgetService } from "../services/titleWidget.js";
-import { useDebounce } from "../utils.ts";
 import { TitleTemplate } from "@admin/services/titleWidget.ts";
 
 interface TitleSettings extends PresetSettings {
@@ -53,10 +60,10 @@ interface TitleTableRowProps {
     onShow: () => void;
     onEdit: (data: TitleData) => unknown;
     onDelete: () => void;
+    onPreviewOpen?: (id: TitleData["id"]) => void;
 }
 
 interface PreviewSVGDialogProps {
-    open: boolean;
     onClose: () => void;
     id: string | number;
 }
@@ -114,91 +121,84 @@ function createPresetUpdater(
     };
 }
 
+const TitlePreviewContext = createContext<
+    ((id: TitleData["id"]) => void) | null
+>(null);
+
+type PreviewState =
+    | { status: "loading" }
+    | { status: "ready"; id: TitleData["id"]; url: string }
+    | { status: "error"; id: TitleData["id"]; message: string };
+
 function PreviewSVGDialog({
     id,
-    open,
     onClose,
 }: PreviewSVGDialogProps): React.ReactElement {
-    const { enqueueSnackbar } = useSnackbar();
     const service = useTitleWidgetService<TitleSettings>(
         "/title",
-        errorHandlerWithSnackbar(enqueueSnackbar),
+        undefined,
         false,
     );
-    const [content, setContent] = useState<string | undefined>(undefined);
-    const [loading, setLoading] = useState<boolean>(false);
+    const [result, setResult] = useState<PreviewState>({ status: "loading" });
+    const preview: PreviewState =
+        result.status !== "loading" && result.id !== id
+            ? { status: "loading" }
+            : result;
 
     useEffect(() => {
-        async function fetchPreview() {
-            if (open && !content) {
-                setLoading(true);
-                try {
-                    const response = await service.getPreview(id);
-                    let previewContent: string = "";
+        let active = true;
 
-                    // TODO: Freak solution
-                    if (typeof response === "string") {
-                        previewContent = response;
-                    } else if (response && typeof response === "object") {
-                        if (
-                            "url" in response &&
-                            typeof response.url === "string"
-                        ) {
-                            previewContent = response.url;
-                        } else if (
-                            "data" in response &&
-                            typeof response.data === "string"
-                        ) {
-                            previewContent = response.data;
-                        } else if (
-                            "content" in response &&
-                            typeof response.content === "string"
-                        ) {
-                            previewContent = response.content;
-                        } else {
-                            previewContent = String(response);
-                        }
-                    }
-                    setContent(previewContent);
-                } catch (error) {
-                    console.error(`Failed to load preview: ${error}`);
-                } finally {
-                    setLoading(false);
-                }
+        const fetchPreview = async () => {
+            try {
+                const response = await service.getPreview(id);
+                if (!active) return;
+
+                setResult({ status: "ready", id, url: response.content });
+            } catch (error) {
+                if (!active) return;
+
+                setResult({
+                    status: "error",
+                    id,
+                    message:
+                        error instanceof Error ? error.message : String(error),
+                });
             }
-        }
+        };
 
-        fetchPreview();
-    }, [open, id]);
-
-    function handleClose() {
-        setContent(undefined);
-        setLoading(false);
-        onClose();
-    }
+        void fetchPreview();
+        return () => {
+            active = false;
+        };
+    }, [id, service]);
 
     return (
-        <Dialog fullWidth maxWidth="md" open={open} onClose={handleClose}>
+        <Dialog fullWidth maxWidth="md" open onClose={onClose}>
             <DialogTitle>Title preview</DialogTitle>
             <DialogContent>
                 <Card sx={{ borderRadius: 0, minHeight: 200 }}>
-                    {loading && (
+                    {preview.status === "loading" && (
                         <Stack alignItems="center" sx={{ py: 3 }}>
-                            <CircularProgress />
+                            <CircularProgress aria-label="Loading title preview" />
                         </Stack>
                     )}
-                    {content && !loading && (
+                    {preview.status === "ready" && (
                         <object
                             type="image/svg+xml"
-                            data={content}
+                            data={preview.url}
                             style={{ width: "100%", display: "block" }}
                             aria-label="SVG Preview"
                         />
                     )}
+                    {preview.status === "error" && (
+                        <Alert severity="error">
+                            Failed to load title preview: {preview.message}
+                        </Alert>
+                    )}
                 </Card>
             </DialogContent>
             <DialogActions>
-                <Button onClick={handleClose} autoFocus>
+                <Button onClick={onClose} autoFocus>
                     OK
                 </Button>
             </DialogActions>
@@ -295,15 +295,10 @@ function ParamsDataEditor({
 }: ValueEditorProps<Record<string, unknown>>): React.ReactElement {
     const initialValue = paramsDataToString(value);
     const [inputValue, setInputValue] = useState<string>(initialValue);
-    const debouncedInputValue = useDebounce(inputValue, 250);
-
-    useEffect(() => {
-        const parsedData = parseParamsData(debouncedInputValue);
-        onChange(parsedData);
-    }, [debouncedInputValue, onChange]);
-
     function handleChange(event: ChangeEvent<HTMLInputElement>) {
-        setInputValue(event.target.value);
+        const input = event.target.value;
+        setInputValue(input);
+        onChange(parseParamsData(input));
     }
 
     return (
@@ -384,14 +379,14 @@ function ActionButtonsCell({
     onDeleteClick,
 }: {
     isEditMode: boolean;
-    onPreviewOpen: () => void;
+    onPreviewOpen?: () => void;
     onEditClick: () => void;
     onDeleteClick: () => void;
 }): React.ReactElement {
     return (
         <TableCell component="th" scope="row" align="right">
             <Box display="flex" gap={0.5}>
-                {!isEditMode && (
+                {!isEditMode && onPreviewOpen && (
                     <IconButton
                         onClick={onPreviewOpen}
                         aria-label="Preview"
@@ -426,20 +421,14 @@ export function TitleTableRow({
     onShow,
     onEdit,
     onDelete,
+    onPreviewOpen,
 }: TitleTableRowProps): React.ReactElement {
     const { editData, onClickEdit, onSubmitEdit, onChangeField } =
         usePresetTableRowDataState(data, onEdit);
 
-    const [previewDialogOpen, setPreviewDialogOpen] = useState<boolean>(false);
+    const openPreviewFromContext = useContext(TitlePreviewContext);
+    const openPreview = onPreviewOpen ?? openPreviewFromContext;
     const isEditMode = editData !== undefined;
-
-    function handlePreviewOpen() {
-        setPreviewDialogOpen(true);
-    }
-
-    function handlePreviewClose() {
-        setPreviewDialogOpen(false);
-    }
 
     const applyLeftPreset = createPresetUpdater(
         data,
@@ -453,76 +442,75 @@ export function TitleTableRow({
     );
 
     return (
-        <>
-            <PreviewSVGDialog
-                open={previewDialogOpen}
-                onClose={handlePreviewClose}
-                id={data.id}
+        <TableRow
+            key={data.id}
+            sx={{
+                backgroundColor: data.shown ? activeRowColor : undefined,
+            }}
+        >
+            <PresetSelectionCell
+                shown={data.shown}
+                onShow={onShow}
+                onLeftPresetSelect={applyLeftPreset}
+                onRightPresetSelect={applyRightPreset}
             />
 
-            <TableRow
-                key={data.id}
-                sx={{
-                    backgroundColor: data.shown ? activeRowColor : undefined,
-                }}
-            >
-                <PresetSelectionCell
-                    shown={data.shown}
-                    onShow={onShow}
-                    onLeftPresetSelect={applyLeftPreset}
-                    onRightPresetSelect={applyRightPreset}
-                />
+            <PresetsTableCell
+                value={data.settings.leftPreset}
+                editValue={editData?.settings?.leftPreset}
+                onChange={onChangeField("leftPreset")}
+                onSubmit={onSubmitEdit}
+                ValueEditor={TemplateEditor}
+            />
 
-                <PresetsTableCell
-                    value={data.settings.leftPreset}
-                    editValue={editData?.settings?.leftPreset}
-                    onChange={onChangeField("leftPreset")}
-                    onSubmit={onSubmitEdit}
-                    ValueEditor={TemplateEditor}
-                />
+            <PresetsTableCell
+                value={data.settings.rightPreset}
+                editValue={editData?.settings?.rightPreset}
+                onChange={onChangeField("rightPreset")}
+                onSubmit={onSubmitEdit}
+                ValueEditor={TemplateEditor}
+            />
 
-                <PresetsTableCell
-                    value={data.settings.rightPreset}
-                    editValue={editData?.settings?.rightPreset}
-                    onChange={onChangeField("rightPreset")}
-                    onSubmit={onSubmitEdit}
-                    ValueEditor={TemplateEditor}
-                />
+            <PresetsTableCell
+                value={data.settings.preset}
+                editValue={editData?.settings?.preset}
+                onChange={onChangeField("preset")}
+                onSubmit={onSubmitEdit}
+                ValueEditor={TemplateEditor}
+            />
 
-                <PresetsTableCell
-                    value={data.settings.preset}
-                    editValue={editData?.settings?.preset}
-                    onChange={onChangeField("preset")}
-                    onSubmit={onSubmitEdit}
-                    ValueEditor={TemplateEditor}
-                />
+            <PresetsTableCell
+                value={data.settings.data}
+                editValue={editData?.settings?.data}
+                ValueEditor={ParamsDataEditor}
+                onChange={onChangeField("data")}
+                onSubmit={onSubmitEdit}
+                valuePrinter={renderParamsData}
+            />
 
-                <PresetsTableCell
-                    value={data.settings.data}
-                    editValue={editData?.settings?.data}
-                    ValueEditor={ParamsDataEditor}
-                    onChange={onChangeField("data")}
-                    onSubmit={onSubmitEdit}
-                    valuePrinter={renderParamsData}
-                />
-
-                <ActionButtonsCell
-                    isEditMode={isEditMode}
-                    onPreviewOpen={handlePreviewOpen}
-                    onEditClick={onClickEdit}
-                    onDeleteClick={onDelete}
-                />
-            </TableRow>
-        </>
+            <ActionButtonsCell
+                isEditMode={isEditMode}
+                onPreviewOpen={
+                    openPreview ? () => openPreview(data.id) : undefined
+                }
+                onEditClick={onClickEdit}
+                onDeleteClick={onDelete}
+            />
+        </TableRow>
     );
 }
 
 export function Title(): React.ReactElement {
     const { enqueueSnackbar } = useSnackbar();
+    const errorHandler = useMemo(
+        () => errorHandlerWithSnackbar(enqueueSnackbar),
+        [enqueueSnackbar],
+    );
     const service = usePresetWidgetService<TitleSettings>(
         "/title",
-        errorHandlerWithSnackbar(enqueueSnackbar),
+        errorHandler,
     );
+    const [previewId, setPreviewId] = useState<TitleData["id"] | null>(null);
 
     const defaultRowData: TitleSettings = {
         preset: "",
@@ -533,18 +521,26 @@ export function Title(): React.ReactElement {
 
     return (
         <Container maxWidth="lg" sx={{ pt: 2 }} className="Title">
-            <PresetsManager<TitleSettings>
-                service={service}
-                tableKeys={["leftPreset", "rightPreset", "preset", "data"]}
-                tableKeysHeaders={[
-                    "Left template",
-                    "Right template",
-                    "Template",
-                    "Data",
-                ]}
-                defaultRowData={defaultRowData}
-                RowComponent={TitleTableRow}
-            />
+            {previewId !== null && (
+                <PreviewSVGDialog
+                    id={previewId}
+                    onClose={() => setPreviewId(null)}
+                />
+            )}
+            <TitlePreviewContext.Provider value={setPreviewId}>
+                <PresetsManager<TitleSettings>
+                    service={service}
+                    tableKeys={["leftPreset", "rightPreset", "preset", "data"]}
+                    tableKeysHeaders={[
+                        "Left template",
+                        "Right template",
+                        "Template",
+                        "Data",
+                    ]}
+                    defaultRowData={defaultRowData}
+                    RowComponent={TitleTableRow}
+                />
+            </TitlePreviewContext.Provider>
         </Container>
     );
 }
