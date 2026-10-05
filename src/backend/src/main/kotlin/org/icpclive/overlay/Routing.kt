@@ -78,4 +78,23 @@ fun Route.configureOverlayRouting() {
             call.respond(result)
         }
     }
+
+    get("/teamKeylog/{id}/prometheus") {
+        val teamIdStr = call.parameters["id"]
+        if (teamIdStr.isNullOrBlank()) {
+            call.respond(HttpStatusCode.BadRequest, "Invalid team id")
+            return@get
+        }
+        val intervalMs = call.request.queryParameters["intervalMs"]?.toLongOrNull()
+        if (intervalMs == null || intervalMs <= 0) {
+            call.respond(HttpStatusCode.BadRequest, "Missing or invalid intervalMs query parameter")
+            return@get
+        }
+        val result = DataBus.keylogService.await().getPrometheusKeylog(teamIdStr.toTeamId(), intervalMs.milliseconds)
+        if (result == null) {
+            call.respond(HttpStatusCode.NotFound)
+        } else {
+            call.respond(result)
+        }
+    }
 }

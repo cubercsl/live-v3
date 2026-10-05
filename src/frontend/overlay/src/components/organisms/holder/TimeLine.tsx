@@ -3,10 +3,17 @@ import styled from "styled-components";
 import { useAppSelector } from "@/redux/hooks";
 import c from "@/config";
 import { getIOIColor } from "@/utils/statusInfo";
-import { ContestInfo, TeamId, TeamInfo, TimeLineRunInfo } from "@shared/api";
+import {
+    ContestInfo,
+    MediaType,
+    TeamId,
+    TeamInfo,
+    TimeLineRunInfo,
+} from "@shared/api";
 import { calculateContestTime } from "@/components/molecules/Clock";
 import { isShouldUseDarkColor } from "@/utils/colors";
 import { KeylogGraph } from "./KeylogGraph";
+import { PrometheusKeylogGraph } from "./PrometheusKeylogGraph";
 
 interface TimeLineContainerProps {
     isPvp: boolean;
@@ -433,7 +440,24 @@ export function TimeLine({
     const [runsResults, setRunsResults] = useState<TimeLineRunInfo[]>([]);
     const [syncStartTime, setSyncStartTime] = useState<number | null>(null);
     const [lineWidth, setLineWidth] = useState<number>(0);
-    const [keylog, setKeylog] = useState<number[]>([]);
+    const [keylogData, setKeylogData] = useState<{
+        teamId: TeamId;
+        contestInfo: ContestInfo;
+        url: string | undefined;
+        values: number[];
+    } | null>(null);
+    const keylogMedia = teamData?.medias.keylog?.find(
+        (media) => media.type === MediaType.Type.Text,
+    );
+    const keylogUrl = keylogMedia?.url;
+    const keylog =
+        keylogData?.teamId === teamId &&
+        keylogData.contestInfo === contestInfo &&
+        keylogData.url === keylogUrl
+            ? keylogData.values
+            : [];
+    const isPrometheus = keylogUrl?.startsWith("prometheus+") ?? false;
+    const Graph = isPrometheus ? PrometheusKeylogGraph : KeylogGraph;
 
     const teamColor = teamData?.color ?? c.CONTEST_COLOR;
 
@@ -504,13 +528,31 @@ export function TimeLine({
         if (!contestInfo) return;
         const controller = new AbortController();
         const intervalMs = c.KEYLOG_INTERVAL_LENGTH;
-        const url = `${c.BASE_URL_BACKEND}/teamKeylog/${teamId}?intervalMs=${intervalMs}`;
+        const suffix = isPrometheus ? "/prometheus" : "";
+        const url = `${c.BASE_URL_BACKEND}/teamKeylog/${teamId}${suffix}?intervalMs=${intervalMs}`;
         fetch(url, { signal: controller.signal })
-            .then((r) => (r.ok ? (r.json() as Promise<number[]>) : null))
+            .then((r) => {
+                if (!r.ok) {
+                    if (isPrometheus && r.status !== 404) {
+                        throw new Error(
+                            `Prometheus keylog request for team ${teamId} failed with HTTP ${r.status}`,
+                        );
+                    }
+                    return null;
+                }
+                return r.json() as Promise<number[]>;
+            })
             .then((data) => {
-                if (!data) return;
+                if (!data || controller.signal.aborted) return;
                 const pressesPerMinute = 60_000 / intervalMs;
-                setKeylog(data.map((v) => v * pressesPerMinute));
+                setKeylogData({
+                    teamId,
+                    contestInfo,
+                    url: keylogUrl,
+                    values: isPrometheus
+                        ? data
+                        : data.map((v) => v * pressesPerMinute),
+                });
             })
             .catch((e: unknown) => {
                 if (e instanceof Error && e.name !== "AbortError") {
@@ -521,7 +563,7 @@ export function TimeLine({
                 }
             });
         return () => controller.abort();
-    }, [teamId, contestInfo]);
+    }, [teamId, contestInfo, isPrometheus, keylogUrl]);
 
     if (!contestInfo) return null;
 
@@ -534,11 +576,7 @@ export function TimeLine({
             isPvp={isPvp}
         >
             {keylog.length > 0 && (
-                <KeylogGraph
-                    keylog={keylog}
-                    isPvp={isPvp}
-                    teamColor={teamColor}
-                />
+                <Graph keylog={keylog} isPvp={isPvp} teamColor={teamColor} />
             )}
 
             <Line lineWidth={lineWidth} left={c.TIMELINE_LEFT_TIME_PADDING} />
