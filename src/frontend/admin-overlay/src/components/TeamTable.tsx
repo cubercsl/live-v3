@@ -137,7 +137,7 @@ function isMediaTypeSelected(
     selectedTypes: (TeamMediaType | null)[],
 ): boolean {
     if (mediaType === null) {
-        return selectedTypes.length === 0;
+        return selectedTypes.length === 0 || selectedTypes.includes(null);
     }
 
     return selectedTypes.includes(mediaType);
@@ -306,9 +306,7 @@ export function TeamSettingsPanel({
             } else if (secondaryMediaType === mediaType) {
                 setSecondaryMediaType(undefined);
             } else {
-                const mediaTypes = [secondaryMediaType, mediaType].filter(
-                    (type): type is TeamMediaType => type !== null,
-                );
+                const mediaTypes = [secondaryMediaType, mediaType];
                 onShowTeam(mediaTypes);
                 setSecondaryMediaType(undefined);
             }

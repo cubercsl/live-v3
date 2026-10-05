@@ -296,7 +296,12 @@ const InstanceStatus: React.FC<InstanceStatusProps> = ({
                 </ButtonGroup>
             </Stack>
             <Box>Team: {shownTeam?.shortName ?? "Auto"}</Box>
-            <Box>Media: {iStatus?.settings?.mediaTypes?.join(", ")}</Box>
+            <Box>
+                Media:{" "}
+                {iStatus?.settings?.mediaTypes
+                    ?.map((type) => type ?? "empty")
+                    .join(", ")}
+            </Box>
         </Paper>
     );
 };
@@ -449,12 +454,12 @@ const TeamViewManager: React.FC = () => {
     const [selectedInstance, setSelectedInstance] = useState<
         TeamViewPosition | undefined
     >(undefined);
-    const [mediaType1, setMediaType1] = useState<TeamMediaType | undefined>(
-        undefined,
-    );
-    const [mediaType2, setMediaType2] = useState<TeamMediaType | undefined>(
-        undefined,
-    );
+    const [mediaType1, setMediaType1] = useState<
+        TeamMediaType | null | undefined
+    >(undefined);
+    const [mediaType2, setMediaType2] = useState<
+        TeamMediaType | null | undefined
+    >(undefined);
     const [statusShown, setStatusShown] = useState<boolean>(true);
     const [achievementShown, setAchievementShown] = useState<boolean>(false);
     const [timeLineShown, setTimeLineShown] = useState<boolean>(true);
@@ -539,9 +544,10 @@ const TeamViewManager: React.FC = () => {
 
     const onShow = useCallback(() => {
         const settings = {
-            mediaTypes: [mediaType1, mediaType2].filter(
-                (i): i is TeamMediaType => Boolean(i),
-            ),
+            mediaTypes:
+                mediaType1 == null && mediaType2 == null
+                    ? []
+                    : [mediaType1 ?? null, mediaType2 ?? null],
             teamId: selectedTeamId,
             showTaskStatus: statusShown,
             showAchievement: achievementShown && variant !== "split",

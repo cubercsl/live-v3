@@ -979,7 +979,7 @@ export interface IOIProblemEntity {
 
 export interface ExternalTeamViewSettings {
   teamId?: TeamId | null;
-  mediaTypes?: TeamMediaType[];
+  mediaTypes?: (TeamMediaType | null)[];
   showTaskStatus?: boolean;
   showAchievement?: boolean;
   showTimeLine?: boolean;

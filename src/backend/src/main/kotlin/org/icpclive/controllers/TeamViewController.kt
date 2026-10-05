@@ -30,7 +30,7 @@ class TeamViewController(
         }
         return DataBus.currentContestInfoFlow().combine(processedSettingsFlow) { contestInfo, settings ->
             val teamInfo = contestInfo.teams[settings.teamId] ?: return@combine null
-            val content = settings.mediaTypes.mapNotNull { teamInfo.medias[it] }.toList()
+            val content = settings.mediaTypes.map { teamInfo.medias[it].orEmpty() }
 
             val primary = content.getOrNull(0).orEmpty()
             val secondary = content.getOrNull(1).orEmpty()
