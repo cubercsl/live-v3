@@ -1,5 +1,5 @@
 import { Paper } from "@mui/material";
-import React, { useCallback } from "react";
+import type { ComponentProps, ReactElement } from "react";
 import { OVERLAY_LOCATION } from "../config";
 import { Rnd } from "react-rnd";
 import { useLocalStorageState } from "../utils";
@@ -17,9 +17,9 @@ type OverlayProps = {
     isOverlayPreviewShown: boolean;
 };
 
-export function Overlay({
-    isOverlayPreviewShown,
-}: OverlayProps): React.ReactElement {
+type RndProps = ComponentProps<typeof Rnd>;
+
+export function Overlay({ isOverlayPreviewShown }: OverlayProps): ReactElement {
     const [state, setState] = useLocalStorageState<OverlayState>(
         "OverlayPreviewPosition",
         {
@@ -29,26 +29,25 @@ export function Overlay({
         },
     );
 
-    type RndProps = React.ComponentProps<typeof Rnd>;
+    const onResize: NonNullable<RndProps["onResize"]> = (
+        _event,
+        _direction,
+        element,
+        _delta,
+        position,
+    ) =>
+        setState({
+            scaleFactor: element.offsetWidth / FULL_WIDTH,
+            offsetX: position.x,
+            offsetY: position.y,
+        });
 
-    const onResize = useCallback<NonNullable<RndProps["onResize"]>>(
-        (_e, _direction, ref) =>
-            setState({
-                ...state,
-                scaleFactor: ref.offsetWidth / FULL_WIDTH,
-            }),
-        [setState],
-    );
-
-    const onDrag = useCallback<NonNullable<RndProps["onDrag"]>>(
-        (_e, ref) =>
-            setState({
-                ...state,
-                offsetX: ref.lastX,
-                offsetY: ref.lastY,
-            }),
-        [setState],
-    );
+    const onDrag: NonNullable<RndProps["onDrag"]> = (_event, data) =>
+        setState({
+            ...state,
+            offsetX: data.x,
+            offsetY: data.y,
+        });
 
     if (!isOverlayPreviewShown) return null;
 
@@ -60,7 +59,9 @@ export function Overlay({
             position={{ x: state.offsetX, y: state.offsetY }}
             size={{ width: scaledWidth, height: scaledHeight }}
             onResize={onResize}
+            onResizeStop={onResize}
             onDrag={onDrag}
+            onDragStop={onDrag}
             lockAspectRatio
             bounds="body"
         >
