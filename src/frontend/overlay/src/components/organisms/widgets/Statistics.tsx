@@ -32,6 +32,7 @@ const Header = styled.div`
     width: 100%;
 
     font-size: ${c.STATISTICS_HEADER_FONT_SIZE};
+    font-family: ${c.GLOBAL_DEFAULT_FONT_FAMILY};
     line-height: ${c.STATISTICS_HEADER_LINE_HEIGHT};
     color: white;
 `;
