@@ -12,10 +12,12 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.*
 import org.icpclive.Config
 import org.icpclive.api.TeamViewPosition
+import org.icpclive.api.TeamViewPositionState
 import org.icpclive.api.WidgetUsageStatisticsEntry
 import org.icpclive.cds.tunning.TuningRule
 import org.icpclive.cds.tunning.toRulesList
 import org.icpclive.data.*
+import org.icpclive.server.ApiActionException
 import org.icpclive.server.adminApiAction
 import org.icpclive.server.configureDefaultConfigRouting
 
@@ -31,9 +33,21 @@ fun Route.configureAdminApiRouting() {
                 call.respond(getRegions())
             }
         }
-        fun Route.setupTeamViews(name:String, vararg positions: TeamViewPosition) {
+        fun Route.setupTeamViews(name: String, vararg positions: TeamViewPosition) {
             route("/$name") {
                 setupControllerGroup(positions.associate { it.name to controllers.teamView(it) })
+                post("/apply") {
+                    call.adminApiAction {
+                        val states = call.safeReceive<Map<TeamViewPosition, TeamViewPositionState>>()
+                        if (states.keys != positions.toSet()) {
+                            throw ApiActionException("Expected states for exactly these positions: ${positions.joinToString()}")
+                        }
+                        positions.forEach { position ->
+                            val state = states.getValue(position)
+                            controllers.teamView(position).applyState(state.settings, state.shown)
+                        }
+                    }
+                }
                 positions.forEach { position ->
                     route("/${position.name}") { setupController(controllers.teamView(position)) }
                 }

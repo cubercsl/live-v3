@@ -1,5 +1,12 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { Box, Button, Tooltip, ButtonGroup, alpha } from "@mui/material";
+import {
+    Box,
+    Button,
+    ButtonBase,
+    Tooltip,
+    ButtonGroup,
+    alpha,
+} from "@mui/material";
 import { lightBlue, grey } from "@mui/material/colors";
 import CollectionsIcon from "@mui/icons-material/Collections";
 import TaskStatusIcon from "@mui/icons-material/Segment";
@@ -39,6 +46,7 @@ export interface TableStyle {
 }
 
 export interface TeamRowProps {
+    disabled?: boolean;
     team: TeamViewData;
     style: TableStyle;
     usageStats?: UsageStats;
@@ -81,6 +89,8 @@ export interface SettingsPanelProps {
 }
 
 export interface TeamTableProps {
+    disabled?: boolean;
+    maxColumns?: number;
     teams: TeamViewData[];
     onTeamClick: (teamId: TeamId | null) => void;
     style?: TableStyle;
@@ -123,8 +133,8 @@ function getUsageTimeFromStats(
 }
 
 function getTeamBackgroundColor(team: TeamViewData, style: TableStyle): string {
-    if (team.shown) return style.activeColor;
     if (team.selected) return style.selectedColor;
+    if (team.shown) return style.activeColor;
     return style.inactiveColor;
 }
 
@@ -216,6 +226,7 @@ function MediaButtons({
 }
 
 function TeamRow({
+    disabled = false,
     team,
     style,
     usageStats,
@@ -229,11 +240,17 @@ function TeamRow({
         : undefined;
 
     return (
-        <Box
+        <ButtonBase
+            disableRipple
+            disabled={disabled}
+            aria-pressed={team.selected}
             onClick={() => onClick(team.id)}
             sx={{
                 backgroundColor,
                 color: textColor,
+                outline: team.selected ? "2px solid" : "none",
+                outlineColor: "primary.main",
+                outlineOffset: -2,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
@@ -241,15 +258,17 @@ function TeamRow({
                 height: "100%",
                 minHeight: 48,
                 cursor: "pointer",
-                margin: 0.5,
+                textAlign: "left",
+                overflowWrap: "anywhere",
                 padding: 1,
                 borderRadius: 1,
                 borderBottom: `1px solid ${alpha(grey[400], 0.3)}`,
-                transition: "all 0.2s ease-in-out",
+                "&.Mui-focusVisible": {
+                    outline: "2px solid",
+                    outlineColor: "primary.main",
+                },
                 "&:hover": {
                     backgroundColor: alpha(backgroundColor, 0.8),
-                    transform: "translateY(-1px)",
-                    boxShadow: 1,
                 },
             }}
         >
@@ -265,7 +284,7 @@ function TeamRow({
                     {formatUsageTime(usageTime)}
                 </Typography>
             )}
-        </Box>
+        </ButtonBase>
     );
 }
 
@@ -371,6 +390,8 @@ export function TeamSettingsPanel({
 }
 
 export function TeamTable({
+    disabled = false,
+    maxColumns = 4,
     teams,
     onTeamClick,
     style = DEFAULT_TABLE_STYLE,
@@ -381,13 +402,14 @@ export function TeamTable({
         () => ({
             xs: "repeat(1, 1fr)",
             sm: "repeat(2, 1fr)",
-            md: "repeat(4, 1fr)",
+            md: `repeat(${maxColumns}, minmax(0, 1fr))`,
         }),
-        [],
+        [maxColumns],
     );
 
     return (
         <Box
+            aria-busy={disabled}
             sx={{
                 display: "grid",
                 gridTemplateColumns: gridColumns,
@@ -399,6 +421,7 @@ export function TeamTable({
                 <RowComponent
                     key={team.id || "auto"}
                     team={team}
+                    disabled={disabled}
                     style={style}
                     usageStats={usageStats}
                     onClick={onTeamClick}

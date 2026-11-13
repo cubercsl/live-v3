@@ -986,6 +986,11 @@ export interface ExternalTeamViewSettings {
   position?: TeamViewPosition;
 }
 
+export interface TeamViewPositionState {
+  settings: ExternalTeamViewSettings;
+  shown: boolean;
+}
+
 export type ObjectSettings = any;
 
 export interface WidgetUsageStatistics {

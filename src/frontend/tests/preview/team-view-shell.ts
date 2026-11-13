@@ -1,0 +1,14 @@
+export const previewShell = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Team View preview</title><link rel="icon" href="data:,">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#eef1f5;color:#182436;font:14px system-ui,sans-serif}header{height:44px;background:#10438f;color:white;display:flex;align-items:center;justify-content:space-between;padding:0 16px}header strong{font-size:15px}header a{color:white;text-decoration:none}main{height:calc(100vh - 44px);display:grid;grid-template-areas:"program" "controls";grid-template-rows:minmax(220px,32vh) minmax(0,1fr);gap:8px;padding:8px}.controls{grid-area:controls;min-height:0;background:white;overflow:hidden;border:1px solid #d5dce5;border-radius:4px}.controls iframe{width:100%;height:100%;border:0}.program{grid-area:program;background:#111827;border-radius:4px;overflow:hidden;display:flex;flex-direction:column;min-width:0;min-height:0}.program-bar{height:36px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;color:#e5e7eb;padding:0 12px}.program-bar span:before{content:"";display:inline-block;width:7px;height:7px;background:#3cce84;border-radius:50%;margin-right:8px}button{font:inherit;cursor:pointer;background:transparent;color:inherit;border:1px solid #5b6575;border-radius:4px;padding:3px 8px}#viewport{flex:1;position:relative;overflow:hidden;min-height:0}#program{position:absolute;width:1920px;height:1080px;border:0;transform-origin:top left;pointer-events:none}@media(min-width:1700px){main{grid-template-areas:"controls program";grid-template-columns:minmax(0,1fr) 560px;grid-template-rows:minmax(0,1fr)}.program{align-self:start;height:353px}}
+</style></head><body>
+<header><strong>Team View preview</strong><a href="/admin/teamview">Controls only</a></header>
+<main><section class="controls"><iframe id="controls" title="Team View controls"></iframe></section>
+<section class="program"><div class="program-bar"><span>Program · sample video</span><button id="fullscreen">Full screen</button></div><div id="viewport"><iframe id="program" title="Program output" src="/overlay?noStatus&amp;teamMediaAudio=false"></iframe></div></section></main>
+<script>
+document.querySelector('#controls').src='/admin/teamview'+location.search;
+const viewport=document.querySelector('#viewport'),program=document.querySelector('#program');
+new ResizeObserver(()=>{const scale=Math.min(viewport.clientWidth/1920,viewport.clientHeight/1080);program.style.transform='scale('+scale+')';program.style.left=(viewport.clientWidth-1920*scale)/2+'px';program.style.top=(viewport.clientHeight-1080*scale)/2+'px';}).observe(viewport);
+document.querySelector('#fullscreen').addEventListener('click',()=>viewport.requestFullscreen());
+</script></body></html>`;

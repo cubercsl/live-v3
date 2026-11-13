@@ -84,6 +84,17 @@ abstract class SingleWidgetController<SettingsType : ObjectSettings, DataType : 
         changeState { it.copy(settings = newSettings) }
     }
 
+    suspend fun applyState(newSettings: SettingsType, shown: Boolean) {
+        changeState {
+            it.copy(
+                settings = newSettings,
+                showOrder = if (shown) it.showOrder ?: showOrderCounter.next() else null,
+            )
+        }
+    }
+
+    suspend fun showWithSettings(newSettings: SettingsType) = applyState(newSettings, true)
+
     suspend fun show() {
         /**
          * Showing an already visible widget keeps its place in the stacking order, so that changing

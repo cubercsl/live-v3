@@ -38,8 +38,7 @@ inline fun <reified SettingsType : ObjectSettings, reified OverlayWidgetType : T
     }
     post("/show_with_settings") {
         call.adminApiAction {
-            controller.setSettings(call.safeReceive())
-            controller.show()
+            controller.showWithSettings(call.safeReceive())
         }
     }
     post("/hide") {
@@ -67,6 +66,17 @@ inline fun <reified SettingsType : ObjectSettings, reified OverlayWidgetType : T
         // run is workaround for https://youtrack.jetbrains.com/issue/KT-34051
         run {
             call.respond(controllers.mapValues { it.value.getStatus() })
+        }
+    }
+    post("/show_with_settings") {
+        call.adminApiAction {
+            val settings = call.safeReceive<Map<String, SettingsType>>()
+            if (settings.keys != controllers.keys) {
+                throw ApiActionException("Expected settings for exactly these positions: ${controllers.keys.joinToString()}")
+            }
+            controllers.forEach { (position, controller) ->
+                controller.showWithSettings(settings.getValue(position))
+            }
         }
     }
     post("/show") {

@@ -23,6 +23,7 @@ val generateApiTypeScript = tasks.register<TsInterfaceGeneratorTask>("generateAp
         "org.icpclive.api.TickerEvent",
         "org.icpclive.api.SolutionsStatistic",
         "org.icpclive.api.ExternalTeamViewSettings",
+        "org.icpclive.api.TeamViewPositionState",
         "org.icpclive.api.ObjectSettings",
         "org.icpclive.api.WidgetUsageStatistics",
         "org.icpclive.api.TimeLineRunInfo",

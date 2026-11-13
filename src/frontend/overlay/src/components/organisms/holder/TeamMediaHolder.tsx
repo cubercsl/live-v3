@@ -1,7 +1,7 @@
 import styled from "styled-components";
 import { MediaType } from "@shared/api";
 import { useQueryParams } from "@/utils/query-params";
-import React, { useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import Hls from "hls.js";
 import mpegts from "mpegts.js";
 import { GrabberPlayerClient } from "@/utils/grabber/grabber_player";
@@ -12,6 +12,37 @@ type MediaHolderProps<M extends MediaType> = {
     className?: string;
     loop?: boolean;
     onEnded?: () => void;
+    audioEnabled?: boolean;
+};
+
+const mediaFailed = (kind: string, onLoadStatus: (ready: boolean) => void) => {
+    onLoadStatus(false);
+    console.error(new Error(`Unable to load ${kind} media`));
+};
+
+const useMediaPlayback = (
+    ref: React.RefObject<HTMLMediaElement | null>,
+    audio: boolean,
+    onLoadStatus: (ready: boolean) => void,
+) => {
+    const play = useCallback(() => {
+        const video = ref.current;
+        if (video && video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+            void video.play().catch((error) => {
+                if (video.isConnected) {
+                    onLoadStatus(false);
+                    console.error(error);
+                }
+            });
+        }
+    }, [ref, onLoadStatus]);
+    // Chromium can pause autoplay when a preloaded video becomes audible.
+    // Resume after the mute property commits, retaining the same player.
+    useEffect(play, [play, audio]);
+    return useCallback(() => {
+        onLoadStatus(true);
+        play();
+    }, [onLoadStatus, play]);
 };
 
 const useIsTeamMediaAudio = () => {
@@ -55,6 +86,7 @@ export const ImageMediaHolder = ({
             <ImgContainer
                 src={url}
                 onLoad={() => onLoadStatus(true)}
+                onError={() => mediaFailed("image", onLoadStatus)}
                 $vertical={vertical}
             />
         </MediaWrapper>
@@ -63,18 +95,22 @@ export const ImageMediaHolder = ({
 
 export const VideoMediaHolder = ({
     onLoadStatus,
+    audioEnabled = true,
     loop = true,
     onEnded,
     className,
     media: { url, vertical },
 }: MediaHolderProps<MediaType.Video>) => {
-    const audio = useIsTeamMediaAudio();
+    const audio = useIsTeamMediaAudio() && audioEnabled;
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const onCanPlay = useMediaPlayback(videoRef, audio, onLoadStatus);
     return (
         <MediaWrapper $vertical={vertical} className={className}>
             <VideoContainer
+                ref={videoRef}
                 src={url}
-                onCanPlay={() => onLoadStatus(true)}
-                onError={() => onLoadStatus(false)}
+                onCanPlay={onCanPlay}
+                onError={() => mediaFailed("video", onLoadStatus)}
                 autoPlay
                 loop={loop}
                 onEnded={onEnded}
@@ -88,14 +124,16 @@ export const VideoMediaHolder = ({
 
 export const HLSVideoMediaHolder = ({
     onLoadStatus,
+    audioEnabled = true,
     loop = true,
     onEnded,
     className,
     media: { url, jwtToken, vertical },
 }: MediaHolderProps<MediaType.HLSVideo>) => {
-    const audio = useIsTeamMediaAudio();
+    const audio = useIsTeamMediaAudio() && audioEnabled;
 
     const playerRef = useRef<HTMLVideoElement>(null);
+    const onCanPlay = useMediaPlayback(playerRef, audio, onLoadStatus);
     useEffect(() => {
         let hls: Hls;
 
@@ -137,6 +175,7 @@ export const HLSVideoMediaHolder = ({
 
             newHls.on(Hls.Events.ERROR, function (event, data) {
                 if (data.fatal) {
+                    mediaFailed("HLS", onLoadStatus);
                     switch (data.type) {
                         case Hls.ErrorTypes.NETWORK_ERROR:
                             newHls.startLoad();
@@ -164,7 +203,7 @@ export const HLSVideoMediaHolder = ({
                 hls.destroy();
             }
         };
-    }, [url, jwtToken]);
+    }, [url, jwtToken, onLoadStatus]);
 
     // If Media Source is supported, use HLS.js to play video
     // And fallback to using a regular video player if HLS is supported by default in the user's browser
@@ -175,8 +214,8 @@ export const HLSVideoMediaHolder = ({
             <VideoContainer
                 ref={playerRef}
                 src={src}
-                onCanPlay={() => onLoadStatus(true)}
-                onError={() => onLoadStatus(false)}
+                onCanPlay={onCanPlay}
+                onError={() => mediaFailed("video", onLoadStatus)}
                 autoPlay
                 loop={loop}
                 onEnded={onEnded}
@@ -190,14 +229,16 @@ export const HLSVideoMediaHolder = ({
 
 export const M2tsVideoMediaHolder = ({
     onLoadStatus,
+    audioEnabled = true,
     loop = true,
     onEnded,
     className,
     media: { url, vertical },
 }: MediaHolderProps<MediaType.M2tsVideo>) => {
-    const audio = useIsTeamMediaAudio();
+    const audio = useIsTeamMediaAudio() && audioEnabled;
 
     const videoRef = useRef<HTMLVideoElement>(null);
+    const onCanPlay = useMediaPlayback(videoRef, audio, onLoadStatus);
     useEffect(() => {
         onLoadStatus(false);
         const videoElement = videoRef.current;
@@ -224,8 +265,8 @@ export const M2tsVideoMediaHolder = ({
         <MediaWrapper $vertical={vertical} className={className}>
             <VideoContainer
                 ref={videoRef}
-                onCanPlay={() => onLoadStatus(true)}
-                onError={() => onLoadStatus(false)}
+                onCanPlay={onCanPlay}
+                onError={() => mediaFailed("video", onLoadStatus)}
                 autoPlay
                 loop={loop}
                 onEnded={onEnded}
@@ -239,12 +280,14 @@ export const M2tsVideoMediaHolder = ({
 
 export const WebRTCGrabberMediaHolder = ({
     onLoadStatus,
+    audioEnabled = true,
     className,
     media: { url, peerName, streamType, credential, vertical },
 }: MediaHolderProps<MediaType.WebRTCGrabberConnection>) => {
-    const audio = useIsTeamMediaAudio();
+    const audio = useIsTeamMediaAudio() && audioEnabled;
 
     const videoRef = useRef<HTMLVideoElement>(null);
+    const onCanPlay = useMediaPlayback(videoRef, audio, onLoadStatus);
     useEffect(() => {
         const videoElement = videoRef.current;
         const client = new GrabberPlayerClient("play", url);
@@ -265,6 +308,7 @@ export const WebRTCGrabberMediaHolder = ({
             });
         });
         client.on("auth:failed", () => {
+            mediaFailed("WebRTC authentication", onLoadStatus);
             console.warn(
                 `WebRTCGrabber: Connection failed from ${url} peerName ${peerName}. Incorrect credential`,
             );
@@ -273,7 +317,7 @@ export const WebRTCGrabberMediaHolder = ({
             console.warn(
                 `WebRTCGrabber: Connection failed from ${url} peerName ${peerName}. No such peer with ${streamType}`,
             );
-            onLoadStatus(true);
+            mediaFailed("WebRTC grabber", onLoadStatus);
         });
 
         return () => {
@@ -288,8 +332,8 @@ export const WebRTCGrabberMediaHolder = ({
         <MediaWrapper $vertical={vertical} className={className}>
             <VideoContainer
                 ref={videoRef}
-                onCanPlay={() => onLoadStatus(true)}
-                onError={() => onLoadStatus(false)}
+                onCanPlay={onCanPlay}
+                onError={() => mediaFailed("video", onLoadStatus)}
                 muted={!audio}
                 controls={false}
                 $vertical={vertical}
@@ -300,60 +344,92 @@ export const WebRTCGrabberMediaHolder = ({
 
 export const WebRTCProxyMediaHolder = ({
     onLoadStatus,
+    audioEnabled = true,
     className,
     media: { url, audioUrl, vertical },
 }: MediaHolderProps<MediaType.WebRTCProxyConnection>) => {
-    const audio = useIsTeamMediaAudio();
+    const audio = useIsTeamMediaAudio() && audioEnabled;
 
     const videoRef = useRef<HTMLVideoElement>(null);
-    const rtcRef = useRef<RTCPeerConnection>(null);
+    const onCanPlay = useMediaPlayback(videoRef, audio, onLoadStatus);
+    const audioRef = useRef<HTMLAudioElement>(null);
+    const reportAudioFailure = useCallback(
+        (ready: boolean) => {
+            if (!ready) onLoadStatus(false);
+        },
+        [onLoadStatus],
+    );
+    const onAudioCanPlay = useMediaPlayback(
+        audioRef,
+        audio,
+        reportAudioFailure,
+    );
     useEffect(() => {
         onLoadStatus(false);
-        rtcRef.current = new RTCPeerConnection();
-        rtcRef.current.ontrack = function (event) {
-            if (event.track.kind !== "video") {
-                return;
-            }
-            videoRef.current.srcObject = event.streams[0];
-            videoRef.current.play();
-        };
-        rtcRef.current.addTransceiver("video");
-        rtcRef.current.addTransceiver("audio");
-        rtcRef.current
-            .createOffer()
-            .then((offer) => {
-                rtcRef.current.setLocalDescription(offer);
-                return fetch(url, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(offer),
+        const connection = new RTCPeerConnection();
+        const abort = new AbortController();
+        const video = videoRef.current;
+        connection.ontrack = (event) => {
+            if (event.track.kind === "video" && video) {
+                video.srcObject = event.streams[0];
+                void video.play().catch((error) => {
+                    if (!abort.signal.aborted) {
+                        onLoadStatus(false);
+                        console.error(error);
+                    }
                 });
-            })
-            .then((res) => res.json())
-            .then((res) => rtcRef.current.setRemoteDescription(res))
-            .catch((e) =>
-                console.trace(
-                    "ERROR featching  webrtc peer connection info: " + e,
-                ),
-            );
-
-        return () => rtcRef.current?.close();
+            }
+        };
+        connection.addTransceiver("video");
+        connection.addTransceiver("audio");
+        const connect = async () => {
+            const offer = await connection.createOffer();
+            if (abort.signal.aborted) return;
+            await connection.setLocalDescription(offer);
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(offer),
+                signal: abort.signal,
+            });
+            if (!response.ok)
+                throw new Error(
+                    `WebRTC signaling failed: HTTP ${response.status}`,
+                );
+            const answer = await response.json();
+            if (!abort.signal.aborted)
+                await connection.setRemoteDescription(answer);
+        };
+        void connect().catch((error) => {
+            if (!abort.signal.aborted) {
+                onLoadStatus(false);
+                console.error(error);
+            }
+        });
+        return () => {
+            abort.abort();
+            connection.close();
+            if (video) video.srcObject = null;
+        };
     }, [url, onLoadStatus]);
 
     return (
         <MediaWrapper $vertical={vertical} className={className}>
             <VideoContainer
                 ref={videoRef}
-                onCanPlay={() => onLoadStatus(true)}
-                onError={() => onLoadStatus(false)}
+                onCanPlay={onCanPlay}
+                onError={() => mediaFailed("video", onLoadStatus)}
                 muted={!audio}
                 controls={false}
                 $vertical={vertical}
             />
             {audioUrl && (
                 <audio
+                    ref={audioRef}
                     src={audioUrl}
-                    onLoadedData={() => onLoadStatus(true)}
+                    onCanPlay={onAudioCanPlay}
+                    muted={!audio}
+                    onError={() => mediaFailed("WebRTC audio", onLoadStatus)}
                     autoPlay
                 />
             )}
@@ -365,10 +441,21 @@ export const ObjectMediaHolder = ({
     onLoadStatus,
     media: { url },
 }: MediaHolderProps<MediaType.Object>) => {
+    const element = useRef<HTMLObjectElement>(null);
     useEffect(() => {
-        onLoadStatus(true);
+        const object = element.current;
+        const failed = () => mediaFailed("SVG object", onLoadStatus);
+        object?.addEventListener("error", failed);
+        return () => object?.removeEventListener("error", failed);
     }, [onLoadStatus]);
-    return <object data={url} type="image/svg+xml"></object>;
+    return (
+        <object
+            ref={element}
+            data={url}
+            type="image/svg+xml"
+            onLoad={() => onLoadStatus(true)}
+        />
+    );
 };
 
 export const TeamMediaHolder = ({

@@ -1,10 +1,8 @@
 import React, {
-    Dispatch,
-    SetStateAction,
     useEffect,
     useLayoutEffect,
     useState,
-    useMemo,
+    useCallback,
 } from "react";
 import styled, { Keyframes, keyframes } from "styled-components";
 import c from "../../../config";
@@ -13,7 +11,7 @@ import {
     OverlayWidgetC,
     OverlayWidgetProps,
 } from "@/components/organisms/widgets/types";
-import { TeamMediaHolder } from "@/components/organisms/holder/TeamMediaHolder";
+import { TeamViewMedia, useTeamViewMedia } from "../holder/TeamViewMedia";
 import TimeLine, {
     TimeLineBackground,
 } from "@/components/organisms/holder/TimeLine";
@@ -39,7 +37,7 @@ const slideOut = keyframes`
     }
 `;
 
-const RoundedTeamMediaHolder = styled(TeamMediaHolder)`
+const RoundedTeamMediaHolder = styled(TeamViewMedia)`
     border-radius: ${c.GLOBAL_BORDER_RADIUS};
     border-top-right-radius: 0;
 `;
@@ -62,9 +60,8 @@ const TeamViewContainer = styled.div.attrs({
 type CommonContentProps = {
     location: LocationRectangle;
     position?: TeamViewPosition;
-    setPrimaryLoaded: Dispatch<SetStateAction<boolean>>;
-    setSecondaryLoaded: Dispatch<SetStateAction<boolean>>;
-    setAchievementLoaded: Dispatch<SetStateAction<boolean>>;
+    media: ReturnType<typeof useTeamViewMedia>;
+    audioEnabled: boolean;
 } & OverlayTeamViewSettings;
 
 const PrimaryMediaWrapper = styled.div`
@@ -150,14 +147,13 @@ const teamViewVariant = (position: TeamViewPosition | undefined) => {
 const SingleContent = ({
     teamId,
     primary,
-    setPrimaryLoaded,
     secondary,
-    setSecondaryLoaded,
     achievement,
-    setAchievementLoaded,
     showTaskStatus,
     showTimeLine,
     location,
+    media,
+    audioEnabled,
 }: CommonContentProps) => {
     const achievementY = location.sizeY - (location.sizeX / 16) * 9;
     const secondaryY =
@@ -165,15 +161,18 @@ const SingleContent = ({
             ? achievementY
             : (location.sizeY * c.TEAMVIEW_FULLSCREEN_SECONDARY_FACTOR) / 2;
     const hasPrimary = (primary?.length ?? 0) > 0;
-    const hasSecondary = (secondary?.length ?? 0) > 0;
-    const hasAchievement = (achievement?.length ?? 0) > 0;
+    const hasSecondary = media.presented.secondary.length > 0;
+    const mountSecondary = secondary.length > 0;
+    const hasAchievement = media.presented.achievement.length > 0;
+    const mountAchievement = achievement.length > 0;
     return (
         <>
             {hasPrimary && (
                 <PrimaryMediaWrapper>
                     <RoundedTeamMediaHolder
-                        media={primary[0]}
-                        onLoadStatus={setPrimaryLoaded}
+                        {...media}
+                        role="primary"
+                        audioEnabled={audioEnabled}
                     />
                 </PrimaryMediaWrapper>
             )}
@@ -181,23 +180,25 @@ const SingleContent = ({
                 $secondaryY={secondaryY}
                 $achievementY={achievementY > 0 ? achievementY : 0}
             >
-                {hasAchievement && (
+                {mountAchievement && (
                     <AchievementGridWrapper>
                         <AchievementWrapper showTimeline={showTimeLine}>
-                            <TeamMediaHolder
-                                media={achievement[0]}
-                                onLoadStatus={setAchievementLoaded}
+                            <TeamViewMedia
+                                {...media}
+                                role="achievement"
+                                audioEnabled={audioEnabled}
                             />
                         </AchievementWrapper>
                     </AchievementGridWrapper>
                 )}
-                {hasSecondary && (
+                {mountSecondary && (
                     <SecondaryMediaWrapper
                         withAchievement={hasAchievement || showTimeLine}
                     >
                         <RoundedTeamMediaHolder
-                            media={secondary[0]}
-                            onLoadStatus={setSecondaryLoaded}
+                            {...media}
+                            role="secondary"
+                            audioEnabled={audioEnabled}
                         />
                     </SecondaryMediaWrapper>
                 )}
@@ -296,15 +297,14 @@ const PVPAchievementInnerWrapper = styled.div`
 const PVPContent = ({
     teamId,
     primary,
-    setPrimaryLoaded,
     secondary,
-    setSecondaryLoaded,
     achievement,
-    setAchievementLoaded,
     showTaskStatus,
     showTimeLine,
     location,
     position,
+    media,
+    audioEnabled,
 }: CommonContentProps) => {
     const isTop = position === TeamViewPosition.PVP_TOP;
     const primaryY = location.sizeY - 0.5 * c.PVP_TABLE_ROW_HEIGHT;
@@ -314,8 +314,8 @@ const PVPContent = ({
             16) *
         9;
     const hasPrimary = (primary?.length ?? 0) > 0;
-    const hasSecondary = (secondary?.length ?? 0) > 0;
-    const hasAchievement = (achievement?.length ?? 0) > 0;
+    const mountSecondary = secondary.length > 0;
+    const mountAchievement = achievement.length > 0;
     return (
         <>
             <PVPGrid
@@ -325,26 +325,29 @@ const PVPContent = ({
             >
                 {hasPrimary && (
                     <PVPPrimaryMediaWrapper $isTop={isTop}>
-                        <TeamMediaHolder
-                            media={primary[0]}
-                            onLoadStatus={setPrimaryLoaded}
+                        <TeamViewMedia
+                            {...media}
+                            role="primary"
+                            audioEnabled={audioEnabled}
                         />
                     </PVPPrimaryMediaWrapper>
                 )}
-                {hasSecondary && (
+                {mountSecondary && (
                     <PVPSecondaryMediaWrapper $isTop={isTop}>
-                        <TeamMediaHolder
-                            media={secondary[0]}
-                            onLoadStatus={setSecondaryLoaded}
+                        <TeamViewMedia
+                            {...media}
+                            role="secondary"
+                            audioEnabled={audioEnabled}
                         />
                     </PVPSecondaryMediaWrapper>
                 )}
-                {hasAchievement && (
+                {mountAchievement && (
                     <PVPAchievementWrapper $isTop={isTop}>
                         <PVPAchievementInnerWrapper>
-                            <TeamMediaHolder
-                                media={achievement[0]}
-                                onLoadStatus={setAchievementLoaded}
+                            <TeamViewMedia
+                                {...media}
+                                role="achievement"
+                                audioEnabled={audioEnabled}
                             />
                         </PVPAchievementInnerWrapper>
                     </PVPAchievementWrapper>
@@ -386,32 +389,35 @@ const SplitScreenGrid = styled.div<{ $secondaryY: number }>`
 const SplitContent = ({
     teamId,
     primary,
-    setPrimaryLoaded,
     secondary,
-    setSecondaryLoaded,
     showTaskStatus,
     location,
+    media,
+    audioEnabled,
 }: CommonContentProps) => {
     const hasPrimary = (primary?.length ?? 0) > 0;
-    const hasSecondary = (secondary?.length ?? 0) > 0;
+    const hasSecondary = media.presented.secondary.length > 0;
+    const mountSecondary = secondary.length > 0;
     return (
         <>
             {hasPrimary && (
                 <PrimaryMediaWrapper>
                     <RoundedTeamMediaHolder
-                        media={primary[0]}
-                        onLoadStatus={setPrimaryLoaded}
+                        {...media}
+                        role="primary"
+                        audioEnabled={audioEnabled}
                     />
                 </PrimaryMediaWrapper>
             )}
             <SplitScreenGrid
                 $secondaryY={location.sizeY * c.SPLITSCREEN_SECONDARY_FACTOR}
             >
-                {hasSecondary && (
+                {mountSecondary && (
                     <SecondaryMediaWrapper withAchievement={false}>
                         <RoundedTeamMediaHolder
-                            media={secondary[0]}
-                            onLoadStatus={setSecondaryLoaded}
+                            {...media}
+                            role="secondary"
+                            audioEnabled={audioEnabled}
                         />
                     </SecondaryMediaWrapper>
                 )}
@@ -432,46 +438,46 @@ export const TeamView: OverlayWidgetC<Widget.TeamViewWidget> = ({
     widgetData,
     transitionState,
 }) => {
-    const [curSettings, setCurSettings] = useState<OverlayTeamViewSettings>(
-        widgetData.settings,
+    const settings = widgetData.settings;
+    const [curSettings, setCurSettings] = useState(settings);
+    const [loadedSettings, setLoadedSettings] =
+        useState<OverlayTeamViewSettings | null>(null);
+    const sameTeam = settings.teamId === curSettings.teamId;
+    if (sameTeam && settings !== curSettings) {
+        setCurSettings(settings);
+    }
+    const nextSettings = sameTeam ? null : settings;
+    const onNextLoaded = useCallback(
+        () => setLoadedSettings(nextSettings),
+        [nextSettings],
     );
-    const [nextSettings, setNextSettings] =
-        useState<OverlayTeamViewSettings>(null);
-
-    // Derive the next settings when team ID changes
-    const shouldUpdateSettings = useMemo(() => {
-        return widgetData.settings.teamId != curSettings.teamId;
-    }, [widgetData.settings.teamId, curSettings.teamId]);
 
     useEffect(() => {
-        if (shouldUpdateSettings) {
-            // eslint-disable-next-line react-compiler/react-compiler
-            setNextSettings(widgetData.settings);
-        }
-    }, [shouldUpdateSettings, widgetData.settings]);
-
-    const onNextLoaded = () => {
-        setTimeout(() => {
+        if (nextSettings === null || loadedSettings !== nextSettings) return;
+        const timeout = setTimeout(() => {
             setCurSettings(nextSettings);
-            setNextSettings(null);
+            setLoadedSettings(null);
         }, c.TEAM_VIEW_APPEAR_TIME);
-    };
+        return () => clearTimeout(timeout);
+    }, [nextSettings, loadedSettings]);
 
     return (
         <>
-            {/** Current */}
             <TeamViewSingleContent
                 key={curSettings?.teamId}
                 widgetData={{ ...widgetData, settings: curSettings }}
                 transitionState={transitionState}
+                audioEnabled={
+                    nextSettings === null || loadedSettings !== nextSettings
+                }
             />
-            {/** Next */}
             {nextSettings && (
                 <TeamViewSingleContent
                     key={nextSettings?.teamId}
                     widgetData={{ ...widgetData, settings: nextSettings }}
                     transitionState={transitionState}
                     onLoaded={onNextLoaded}
+                    audioEnabled={loadedSettings === nextSettings}
                 />
             )}
         </>
@@ -480,27 +486,21 @@ export const TeamView: OverlayWidgetC<Widget.TeamViewWidget> = ({
 
 type TeamViewSingleContentProps = OverlayWidgetProps<Widget.TeamViewWidget> & {
     onLoaded?: () => void;
+    audioEnabled?: boolean;
 };
 
 export const TeamViewSingleContent: React.FC<TeamViewSingleContentProps> = ({
     widgetData: { settings, widgetLocationId },
     transitionState,
     onLoaded,
+    audioEnabled = true,
 }) => {
-    const { primary, secondary, achievement, position } = settings;
+    const media = useTeamViewMedia(settings);
+    const { position } = settings;
     const location = c.WIDGET_POSITIONS[widgetLocationId] as LocationRectangle;
     const variant = teamViewVariant(position);
 
-    const [primaryLoaded, setPrimaryLoaded] = useState(false);
-    const [secondaryLoaded, setSecondaryLoaded] = useState(false);
-    const [achievementLoaded, setAchievementLoaded] = useState(false);
-    const isPrimaryEmpty = (primary?.length ?? 0) === 0;
-    const isSecondaryEmpty = (secondary?.length ?? 0) === 0;
-    const isAchievementEmpty = (achievement?.length ?? 0) === 0;
-    const isLoaded =
-        (isPrimaryEmpty || primaryLoaded) &&
-        (isSecondaryEmpty || secondaryLoaded || true) &&
-        (variant === "single" || isAchievementEmpty || achievementLoaded);
+    const isLoaded = media.loaded;
 
     useLayoutEffect(() => {
         if (isLoaded && onLoaded) {
@@ -509,10 +509,9 @@ export const TeamViewSingleContent: React.FC<TeamViewSingleContentProps> = ({
     }, [isLoaded, onLoaded]);
 
     const props = {
-        ...settings,
-        setPrimaryLoaded,
-        setSecondaryLoaded,
-        setAchievementLoaded,
+        ...media.settings,
+        media,
+        audioEnabled: audioEnabled && isLoaded,
         location,
     };
     return (

@@ -2,16 +2,16 @@
 
 Welcome to the ICPC Live Source Code Repository.
 
-# Run release version
+# Running a release
 
 * Download release from https://github.com/icpc/live-v3/releases
-  * You can download [latest dev build](https://github.com/icpc/live-v3/actions/runs/5968512041) instead if you are brave enough
+  * Development artifacts are available through the [build workflows](https://github.com/icpc/live-v3/actions).
 * Create [contest config files](https://github.com/icpc/live-v3/tree/main/docs/settings.md)
-* (Optional) [Tune](https://github.com/icpc/live-v3/blob/main/docs/advanced.json.md) imported data, so it looks better 
+* (Optional) [Tune](https://github.com/icpc/live-v3/blob/main/docs/advanced.json.md) imported data, so it looks better
 * Run `java -jar /path/to/jar/file --config-directory=/path/to/config/directory`
 
   Check for more options by running `java -jar /path/to/jar/file` without arguments. Here is the couple most useful
-  * ```--creds=creds.json``` -- The path to the credential file. It can be used to avoid storing credentials in the main config file. 
+  * ```--creds=creds.json``` -- The path to the credential file. It can be used to avoid storing credentials in the main config file.
   * ```--no-auth``` -- Disable auth in admin interface. It's useful if you are running the overlayer on localhost.
   * ```-p 8080``` -- 8080 is default port to listen, but it can be changed.
   * ```--widget-positions=filename``` -- customize positions of each widget, see examples in config/widget_positions.json.*
@@ -24,23 +24,23 @@ Welcome to the ICPC Live Source Code Repository.
     * Browser
     * URL http://localhost:8080/overlay?noStatus&teamMediaAudio
     * W H 1920x1080
-    * OBS Custom css: 
+    * OBS Custom css:
   ```css
   #root > div {
       background: unset;
   }
   ```
 
-  NOTE: use can set parameter `teamMediaAudio=false`, to mute team media audio 
+  NOTE: use can set parameter `teamMediaAudio=false`, to mute team media audio
 
-* Use [admin interface](http://localhost:8080/admin) in your browser to control overlay
+* Use the [admin interface](http://localhost:8080/admin) to control the overlay. Team View has independent Single, PvP, and SplitScreen layouts. Enable **Studio** to edit teams, media, information switches, and visibility locally; **Apply** submits the whole layout and **Discard changes** restores confirmed state. With Studio off, edits take effect immediately. Same-team media changes preload and crossfade only the changed regions. See the [Team View guide](docs/team-view.md).
 * Check general broadcast production [schema](https://docs.google.com/document/d/1JcOhmkvbRtG3MLLYUpzVBMqiQOoNpamOz-MvppCgcYk) for other details of typical setup
 * Check [emulation mode](https://github.com/icpc/live-v3/blob/main/docs/emulation.md) part of development doc for testing your setup before the contest started.
-* Check [troubleshooting guide](https://github.com/icpc/live-v3/blob/main/docs/troubleshooting.md) is something looks wrong.
+* Check [troubleshooting guide](docs/troubleshooting.md) is something looks wrong.
 * Read our awesome auto-generated [documentation](https://icpc.io/live-v3/cds/core/org.icpclive.cds.settings/-c-d-s-settings/index.html) for extensive settings.json and advanced.json usage.
 * Download [OBS preset](https://news.icpc.global/obs)
 
-# Authorisation
+# Authentication
 
 For now http basic auth is used. If you try to login with
 user, which does not exist, it will be automatically created.
@@ -59,14 +59,14 @@ If you don't need auth, you can disable it by `--no-auth` command-line option.
 
 # Run in development mode
 
-[Check separate document](https://github.com/icpc/live-v3/blob/main/docs/development.md)
+[Check separate document](docs/development.md)
 
-# Previous versions:
+# Previous versions
 
 * https://github.com/icpc-live
 * https://github.com/Aksenov239/icpc-live-v2
 
-# Other repos:
+# Related projects
 
 * [Script](https://github.com/EgorKulikov/acm_profiles) that collects competitive programming historical data for
   analytical information

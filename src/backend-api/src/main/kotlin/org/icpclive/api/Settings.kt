@@ -56,6 +56,12 @@ data class ExternalTeamViewSettings(
 ) : ObjectSettings
 
 @Serializable
+data class TeamViewPositionState(
+    val settings: ExternalTeamViewSettings,
+    val shown: Boolean,
+)
+
+@Serializable
 data class OverlayTeamViewSettings(
     val teamId: TeamId,
     val primary: List<MediaType>,

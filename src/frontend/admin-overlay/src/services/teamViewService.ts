@@ -2,9 +2,10 @@ import {
     ExternalTeamViewSettings,
     TeamInfo,
     TeamViewPosition,
+    TeamViewPositionState,
     WidgetUsageStatisticsEntry,
 } from "@shared/api.ts";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     AbstractWidgetWithStatus,
     useServiceSnackbarErrorHandler,
@@ -29,36 +30,41 @@ export class TeamViewWidgetService extends AbstractWidgetWithStatus<ExternalTeam
         instance: TeamViewPosition,
         settings: ExternalTeamViewSettings,
     ) {
-        return this.apiPost(`/${instance}/show_with_settings`, settings).catch(
-            this.errorHandler("Failed to show " + this.apiPath),
-        );
+        return this.performAction(`/${instance}/show_with_settings`, settings);
+    }
+
+    show(instance: TeamViewPosition) {
+        return this.performAction(`/${instance}/show`);
     }
 
     hide(instance: TeamViewPosition) {
-        return this.apiPost(`/${instance}/hide`).catch(
-            this.errorHandler("Failed to hide " + this.apiPath),
-        );
+        return this.performAction(`/${instance}/hide`);
     }
 
     setSettings(
         instance: TeamViewPosition,
         settings: ExternalTeamViewSettings,
     ) {
-        return this.apiPost(`/${instance}`, settings).catch(
-            this.errorHandler("Failed to set settings " + this.apiPath),
-        );
+        return this.performAction(`/${instance}`, settings);
     }
 
-    showAll() {
-        return this.apiPost("/show").catch(
-            this.errorHandler("Failed to show all " + this.apiPath),
-        );
+    private async performAction(
+        path: string,
+        settings?:
+            | ExternalTeamViewSettings
+            | Partial<Record<TeamViewPosition, TeamViewPositionState>>,
+    ): Promise<boolean> {
+        try {
+            await this.apiPost(path, settings);
+            return true;
+        } catch (error) {
+            this.handleError("Failed to save " + this.apiPath, error as Error);
+            return false;
+        }
     }
 
-    hideAll() {
-        return this.apiPost("/hide").catch(
-            this.errorHandler("Failed to hide all " + this.apiPath),
-        );
+    apply(states: Partial<Record<TeamViewPosition, TeamViewPositionState>>) {
+        return this.performAction("/apply", states);
     }
 
     teams() {
@@ -98,8 +104,13 @@ export function useTeamViewWidgetService(
     );
     useServiceSnackbarErrorHandler(service);
 
+    const loadVersion = useRef(0);
     const loadStatus = useCallback(() => {
-        service.loadStatus().then((s) => setStatus((st) => ({ ...st, ...s })));
+        const version = ++loadVersion.current;
+        service.loadStatus().then((s) => {
+            if (version === loadVersion.current)
+                setStatus((st) => ({ ...st, ...s }));
+        });
     }, [service, setStatus]);
     useEffect(() => loadStatus(), [loadStatus]);
 
