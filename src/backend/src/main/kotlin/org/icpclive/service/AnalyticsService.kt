@@ -2,6 +2,7 @@ package org.icpclive.service
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import org.icpclive.api.*
@@ -44,6 +45,7 @@ class AnalyticsService(
     private val internalActions = MutableSharedFlow<AnalyticsAction>()
     private var contestInfo: ContestInfo? = null
     private val messages = mutableMapOf<AnalyticsMessageId, AnalyticsMessage>()
+    private var featuredMessageId: AnalyticsMessageId? = null
 
     private val resultFlow = MutableSharedFlow<AnalyticsEvent>(
         extraBufferCapacity = 50000,
@@ -155,6 +157,10 @@ class AnalyticsService(
                 val request = FeaturedRunAction.MakeFeatured(run.id, media)
                 featuredRunsFlow.emit(request)
                 val companionRun = request.result.await() ?: return
+                featuredMessageId?.takeIf { it != message.id }?.let {
+                    updateMessage(messages.getValue(it), featuredRunRemove = true)
+                }
+                featuredMessageId = message.id
                 updateMessage(message, featuredRun = companionRun)
             }
 
@@ -164,9 +170,16 @@ class AnalyticsService(
                     log.warning { "Can't make run not featured caused by message ${message.id}" }
                     return
                 }
-                featuredRunsFlow.emit(FeaturedRunAction.MakeNotFeatured(run.id))
-                updateMessage(message, featuredRunRemove = true)
+                hideFeatured(message, featuredRunsFlow)
             }
+        }
+    }
+
+    private suspend fun hideFeatured(message: AnalyticsMessage, featuredRunsFlow: FlowCollector<FeaturedRunAction>) {
+        featuredRunsFlow.emit(FeaturedRunAction.MakeNotFeatured(checkNotNull(message.runInfo).id))
+        updateMessage(message, featuredRunRemove = true)
+        if (featuredMessageId == message.id) {
+            featuredMessageId = null
         }
     }
 
@@ -235,6 +248,12 @@ class AnalyticsService(
             merge(
                 subscriberFlow.map { Subscribe },
                 actionFlow,
+                flow {
+                    while (true) {
+                        delay(1.seconds)
+                        emit(ExpireFeatured)
+                    }
+                },
                 flow.map { ContestUpdate(it.state.lastEvent) }
             ).collect { event ->
                 when (event) {
@@ -296,6 +315,14 @@ class AnalyticsService(
                         }
                     }
 
+                    is ExpireFeatured -> {
+                        val message = featuredMessageId?.let { messages.getValue(it) }
+                        val expiration = message?.featuredRun?.expirationTime
+                        if (expiration != null && Clock.System.now() >= expiration) {
+                            hideFeatured(message, featuredRunFlow)
+                        }
+                    }
+
                     is Subscribe -> {
                         resultFlow.emit(AnalyticsMessageSnapshotEvent(messages.values.sortedBy { it.relativeTime }))
                     }
@@ -325,6 +352,7 @@ class AnalyticsService(
         private data class ContestUpdate(val update: org.icpclive.cds.ContestUpdate) : AnalyticsProcessTrigger()
         private data class Action(val action: AnalyticsAction) : AnalyticsProcessTrigger()
         private data object Subscribe : AnalyticsProcessTrigger()
+        private data object ExpireFeatured : AnalyticsProcessTrigger()
     }
 }
 

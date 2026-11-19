@@ -15,9 +15,7 @@ export interface QueueRowInfo extends QueueRunInfo {
     bottom: number;
     right: number;
     isFeatured: boolean;
-    isFeaturedRunMediaLoaded: boolean;
     isFts: boolean;
-    setIsFeaturedRunMediaLoaded: ((state: boolean) => void) | null;
 }
 
 export const createEmptyQueueState = (): QueueState => ({

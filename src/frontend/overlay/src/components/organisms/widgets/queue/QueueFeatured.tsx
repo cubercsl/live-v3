@@ -1,4 +1,7 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { isEqual } from "lodash";
+import { useAppDispatch, useAppSelector } from "../../../../redux/hooks";
+import { finishFeaturedPlayback } from "../../../../redux/contest/queue";
 import { useTransition } from "react-transition-state";
 import styled, { css, CSSObject } from "styled-components";
 import c from "@/config";
@@ -40,6 +43,7 @@ const StyledFeatured = styled.div<{ additional: CSSObject }>`
     gap: ${c.QUEUE_ROW_FEATURED_RUN_PADDING}px;
 
     ${({ additional }) => additional}
+    animation-fill-mode: both;
 `;
 
 const StyledHorizontalFeatured = styled.div<{ additional: CSSObject }>`
@@ -59,68 +63,106 @@ const StyledHorizontalFeatured = styled.div<{ additional: CSSObject }>`
     gap: ${c.QUEUE_ROW_FEATURED_RUN_PADDING}px;
 
     ${({ additional }) => additional}
+    animation-fill-mode: both;
 `;
 
-export const Featured = ({ runInfo }: { runInfo: QueueRowInfo | null }) => {
+type FeaturedCardProps = {
+    runInfo: QueueRowInfo;
+    playbackId: number;
+    visible: boolean;
+    horizontal: boolean;
+    onVisibilityChange: (mounted: boolean) => void;
+};
+
+const FeaturedCard = ({
+    runInfo,
+    playbackId,
+    visible,
+    horizontal,
+    onVisibilityChange,
+}: FeaturedCardProps) => {
+    const dispatch = useAppDispatch();
+    const [loaded, setLoaded] = useState(false);
     const [transition, toggle] = useTransition({
         timeout: c.QUEUE_ROW_FEATURED_RUN_APPEAR_TIME,
         mountOnEnter: true,
         unmountOnExit: true,
     });
+    const media = runInfo.featuredRunMedia[0];
+    const isReaction = runInfo.reactionVideos.some((reaction) =>
+        isEqual(reaction, media),
+    );
 
-    React.useEffect(() => {
-        toggle(!!runInfo);
-    }, [runInfo, toggle]);
+    useEffect(() => {
+        toggle(visible && loaded);
+    }, [visible, loaded, toggle]);
 
-    if (!runInfo || !transition.isMounted) {
-        return null;
-    }
+    useEffect(() => {
+        onVisibilityChange(transition.isMounted);
+        return () => onVisibilityChange(false);
+    }, [transition.isMounted, onVisibilityChange]);
 
-    const realState = runInfo.isFeaturedRunMediaLoaded
-        ? transition.status
-        : "exited";
+    // Keep the last frame and row mounted until the exit transition finishes.
+    if (!visible && !transition.isMounted) return null;
+
+    const Container = horizontal ? StyledHorizontalFeatured : StyledFeatured;
+    const appearance =
+        loaded && transition.isMounted
+            ? appearStatesFeatured[transition.status]
+            : appearStatesFeatured.exited;
 
     return (
-        <StyledFeatured additional={appearStatesFeatured[realState]}>
+        <Container additional={appearance}>
             <TeamMediaHolder
-                media={runInfo.featuredRunMedia[0]}
-                onLoadStatus={runInfo.setIsFeaturedRunMediaLoaded}
+                media={media}
+                onLoadStatus={setLoaded}
+                loop={!isReaction}
+                onEnded={
+                    isReaction
+                        ? () => dispatch(finishFeaturedPlayback(playbackId))
+                        : undefined
+                }
             />
             <QueueRow runInfo={runInfo} />
-        </StyledFeatured>
+        </Container>
     );
 };
 
-export const HorizontalFeatured = ({
+export const Featured = ({
     runInfo,
+    horizontal,
+    onVisibilityChange,
 }: {
     runInfo: QueueRowInfo | null;
+    horizontal: boolean;
+    onVisibilityChange: (mounted: boolean) => void;
 }) => {
-    const [transition, toggle] = useTransition({
-        timeout: c.QUEUE_ROW_FEATURED_RUN_APPEAR_TIME,
-        mountOnEnter: true,
-        unmountOnExit: true,
+    const { featuredPlaybackId, isFeaturedPlaybackEnded } = useAppSelector(
+        (state) => state.queue,
+    );
+    const [displayed, setDisplayed] = useState({
+        runInfo,
+        playbackId: featuredPlaybackId,
     });
-
-    React.useEffect(() => {
-        toggle(!!runInfo);
-    }, [runInfo, toggle]);
-
-    if (!runInfo || !transition.isMounted) {
-        return null;
+    if (
+        runInfo &&
+        (runInfo !== displayed.runInfo ||
+            featuredPlaybackId !== displayed.playbackId)
+    ) {
+        setDisplayed({ runInfo, playbackId: featuredPlaybackId });
     }
 
-    const realState = runInfo.isFeaturedRunMediaLoaded
-        ? transition.status
-        : "exited";
+    if (!displayed.runInfo) return null;
 
     return (
-        <StyledHorizontalFeatured additional={appearStatesFeatured[realState]}>
-            <TeamMediaHolder
-                media={runInfo.featuredRunMedia[0]}
-                onLoadStatus={runInfo.setIsFeaturedRunMediaLoaded}
+        <React.Fragment key={displayed.playbackId}>
+            <FeaturedCard
+                runInfo={displayed.runInfo}
+                playbackId={displayed.playbackId}
+                visible={!!runInfo && !isFeaturedPlaybackEnded}
+                horizontal={horizontal}
+                onVisibilityChange={onVisibilityChange}
             />
-            <QueueRow runInfo={runInfo} />
-        </StyledHorizontalFeatured>
+        </React.Fragment>
     );
 };

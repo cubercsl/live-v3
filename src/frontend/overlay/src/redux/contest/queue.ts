@@ -1,103 +1,79 @@
-import _ from "lodash";
-import { QueueRunInfo } from "@shared/api";
-
-const ActionTypes = {
-    QUEUE_ADD_RUN: "QUEUE_ADD_RUN",
-    QUEUE_MODIFY_RUN: "QUEUE_MODIFY_RUN",
-    QUEUE_REMOVE_RUN: "QUEUE_REMOVE_RUN",
-    QUEUE_SET_FROM_SNAPSHOT: "QUEUE_SET_FROM_SNAPSHOT",
-};
+import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { isEqual } from "lodash";
+import { QueueRunInfo } from "../../../../generated/api";
 
 interface QueueState {
     queue: QueueRunInfo[];
     totalQueueItems: number;
+    featuredPlaybackId: number;
+    isFeaturedPlaybackEnded: boolean;
 }
 
 const initialState: QueueState = {
     queue: [],
     totalQueueItems: 0,
+    featuredPlaybackId: 0,
+    isFeaturedPlaybackEnded: false,
 };
 
-export const addRun = (runData) => {
-    return async (dispatch) => {
-        dispatch({
-            type: ActionTypes.QUEUE_ADD_RUN,
-            payload: {
-                newRun: runData,
-            },
-        });
-    };
-};
-
-export const modifyRun = (runData) => {
-    return async (dispatch) => {
-        dispatch({
-            type: ActionTypes.QUEUE_MODIFY_RUN,
-            payload: {
-                runData,
-            },
-        });
-    };
-};
-
-export const removeRun = (runId) => {
-    return async (dispatch) => {
-        dispatch({
-            type: ActionTypes.QUEUE_REMOVE_RUN,
-            payload: {
-                runId,
-            },
-        });
-    };
-};
-
-export const setFromSnapshot = (snapshot) => {
-    return async (dispatch) => {
-        dispatch({
-            type: ActionTypes.QUEUE_SET_FROM_SNAPSHOT,
-            payload: {
-                runs: snapshot,
-            },
-        });
-    };
-};
-
-export function queueReducer(state = initialState, action): QueueState {
-    switch (action.type) {
-        case ActionTypes.QUEUE_ADD_RUN:
-            return {
-                ...state,
-                queue: [
-                    action.payload.newRun,
-                    ...state.queue.filter(
-                        (run) => run.id !== action.payload.newRun.id,
-                    ),
-                ],
-                totalQueueItems: state.totalQueueItems + 1,
-            };
-        case ActionTypes.QUEUE_MODIFY_RUN:
-            return {
-                ...state,
-                queue: state.queue.map((run) =>
-                    run.id === action.payload.runData.id
-                        ? action.payload.runData
-                        : run,
-                ),
-            };
-        case ActionTypes.QUEUE_REMOVE_RUN:
-            return {
-                ...state,
-                queue: _.filter(
-                    state.queue,
-                    (run) => run.id !== action.payload.runId,
-                ),
-            };
-        case ActionTypes.QUEUE_SET_FROM_SNAPSHOT:
-            return {
-                ...state,
-                queue: _.reverse(action.payload.runs),
-            };
-        default:
-            return state;
+const updateQueue = (state: QueueState, queue: QueueRunInfo[]) => {
+    const previous = state.queue.find((run) => run.featuredRunMedia?.length);
+    const current = queue.find((run) => run.featuredRunMedia?.length);
+    // Track every queue event so a deselect/reselect survives React batching.
+    if (
+        previous?.id !== current?.id ||
+        !isEqual(previous?.featuredRunMedia, current?.featuredRunMedia)
+    ) {
+        state.featuredPlaybackId++;
+        state.isFeaturedPlaybackEnded = false;
     }
-}
+    state.queue = queue;
+};
+
+const queueSlice = createSlice({
+    name: "queue",
+    initialState,
+    reducers: {
+        addRun: (state, { payload }: PayloadAction<QueueRunInfo>) => {
+            updateQueue(state, [
+                payload,
+                ...state.queue.filter((run) => run.id !== payload.id),
+            ]);
+            state.totalQueueItems++;
+        },
+        modifyRun: (state, { payload }: PayloadAction<QueueRunInfo>) => {
+            updateQueue(
+                state,
+                state.queue.map((run) =>
+                    run.id === payload.id ? payload : run,
+                ),
+            );
+        },
+        removeRun: (state, { payload }: PayloadAction<string>) => {
+            updateQueue(
+                state,
+                state.queue.filter((run) => run.id !== payload),
+            );
+        },
+        setFromSnapshot: (
+            state,
+            { payload }: PayloadAction<QueueRunInfo[]>,
+        ) => {
+            updateQueue(state, payload.toReversed());
+        },
+        finishFeaturedPlayback: (state, { payload }: PayloadAction<number>) => {
+            if (state.featuredPlaybackId === payload) {
+                state.isFeaturedPlaybackEnded = true;
+            }
+        },
+    },
+});
+
+export const {
+    addRun,
+    modifyRun,
+    removeRun,
+    setFromSnapshot,
+    finishFeaturedPlayback,
+} = queueSlice.actions;
+export const queueReducer = queueSlice.reducer;

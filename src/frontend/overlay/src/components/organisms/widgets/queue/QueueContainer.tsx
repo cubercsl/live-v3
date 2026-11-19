@@ -1,11 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import styled from "styled-components";
 import c from "@/config";
 import { Widget } from "@shared/api";
 import { LocationRectangle } from "@/utils/location-rectangle";
 import { useDelayedBoolean } from "@/utils/hooks/withTimeoutAfterRender";
 import { QueueHeader } from "./QueueHeader";
-import { Featured, HorizontalFeatured } from "./QueueFeatured";
+import { Featured } from "./QueueFeatured";
 import { QueueRowWithTransition } from "./QueueRow";
 import { useVerticalQueueRowsData } from "./hooks/useVerticalQueueData";
 import { useHorizontalQueueRowsData } from "./hooks/useHorizontalQueueData";
@@ -56,6 +56,7 @@ type QueueComponentProps = {
 
 const QueueComponent = ({ shouldShow, widget }: QueueComponentProps) => {
     const horizontal = widget.settings.horizontal;
+    const [isFeaturedMounted, setIsFeaturedMounted] = useState(false);
     const location = c.WIDGET_POSITIONS[
         widget.widgetLocationId
     ] as LocationRectangle;
@@ -79,16 +80,19 @@ const QueueComponent = ({ shouldShow, widget }: QueueComponentProps) => {
     const featured = horizontal ? horizontalFeatured : verticalFeatured;
     const queueRows = horizontal ? horizontalQueueRows : verticalQueueRows;
 
-    const FeaturedComponent = horizontal ? HorizontalFeatured : Featured;
     const RowsContainerComponent = horizontal
         ? HorizontalRowsContainer
         : RowsContainer;
 
     return (
         <>
-            <FeaturedComponent runInfo={featured} />
+            <Featured
+                runInfo={featured}
+                horizontal={horizontal}
+                onVisibilityChange={setIsFeaturedMounted}
+            />
             <QueueWrap
-                hasFeatured={!!featured}
+                hasFeatured={isFeaturedMounted}
                 variant={horizontal ? "horizontal" : "vertical"}
             >
                 <QueueHeader onRef={horizontal ? handleHeaderRef : undefined} />

@@ -10,6 +10,8 @@ type MediaHolderProps<M extends MediaType> = {
     media: M;
     onLoadStatus: (currentStatus: boolean) => void;
     className?: string;
+    loop?: boolean;
+    onEnded?: () => void;
 };
 
 const useIsTeamMediaAudio = () => {
@@ -61,6 +63,8 @@ export const ImageMediaHolder = ({
 
 export const VideoMediaHolder = ({
     onLoadStatus,
+    loop = true,
+    onEnded,
     className,
     media: { url, vertical },
 }: MediaHolderProps<MediaType.Video>) => {
@@ -72,7 +76,8 @@ export const VideoMediaHolder = ({
                 onCanPlay={() => onLoadStatus(true)}
                 onError={() => onLoadStatus(false)}
                 autoPlay
-                loop
+                loop={loop}
+                onEnded={onEnded}
                 muted={!audio}
                 controls={false}
                 $vertical={vertical}
@@ -83,6 +88,8 @@ export const VideoMediaHolder = ({
 
 export const HLSVideoMediaHolder = ({
     onLoadStatus,
+    loop = true,
+    onEnded,
     className,
     media: { url, jwtToken, vertical },
 }: MediaHolderProps<MediaType.HLSVideo>) => {
@@ -171,7 +178,8 @@ export const HLSVideoMediaHolder = ({
                 onCanPlay={() => onLoadStatus(true)}
                 onError={() => onLoadStatus(false)}
                 autoPlay
-                loop
+                loop={loop}
+                onEnded={onEnded}
                 muted={!audio}
                 controls={false}
                 $vertical={vertical}
@@ -182,6 +190,8 @@ export const HLSVideoMediaHolder = ({
 
 export const M2tsVideoMediaHolder = ({
     onLoadStatus,
+    loop = true,
+    onEnded,
     className,
     media: { url, vertical },
 }: MediaHolderProps<MediaType.M2tsVideo>) => {
@@ -194,7 +204,7 @@ export const M2tsVideoMediaHolder = ({
         if (videoElement) {
             const player = mpegts.createPlayer({
                 type: "mpegts",
-                isLive: true,
+                isLive: loop,
                 url: url,
             });
             player.attachMediaElement(videoElement);
@@ -208,7 +218,7 @@ export const M2tsVideoMediaHolder = ({
                 videoElement.srcObject = null;
             }
         };
-    }, [url, onLoadStatus]);
+    }, [url, onLoadStatus, loop]);
 
     return (
         <MediaWrapper $vertical={vertical} className={className}>
@@ -217,7 +227,8 @@ export const M2tsVideoMediaHolder = ({
                 onCanPlay={() => onLoadStatus(true)}
                 onError={() => onLoadStatus(false)}
                 autoPlay
-                loop
+                loop={loop}
+                onEnded={onEnded}
                 muted={!audio}
                 controls={false}
                 $vertical={vertical}

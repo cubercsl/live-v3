@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useAppSelector } from "@/redux/hooks";
 import c from "@/config";
 import { isFTS } from "@/utils/statusInfo";
@@ -27,7 +26,6 @@ export function useVerticalQueueRowsData({
     );
 
     const { queue, totalQueueItems } = useAppSelector((state) => state.queue);
-    const [loadedMediaRun, setLoadedMediaRun] = useState<string | null>(null);
 
     let rows: QueueRowInfo[] = [];
     let featured: QueueRowInfo | null = null;
@@ -40,9 +38,7 @@ export function useVerticalQueueRowsData({
             bottom: 0,
             right: 0,
             isFeatured: false,
-            isFeaturedRunMediaLoaded: false,
             isFts: isFTS(run),
-            setIsFeaturedRunMediaLoaded: null,
         };
 
         if (row.isFts) {
@@ -52,10 +48,6 @@ export function useVerticalQueueRowsData({
 
         if ((run.featuredRunMedia?.length ?? 0) > 0) {
             row.isFeatured = true;
-            row.isFeaturedRunMediaLoaded = loadedMediaRun === run.id;
-            row.setIsFeaturedRunMediaLoaded = (state) => {
-                setLoadedMediaRun(state ? run.id : null);
-            };
             featured = row;
         } else {
             rows.push(row);

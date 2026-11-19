@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useMemo, useCallback } from "react";
 import { useAppSelector } from "@/redux/hooks";
 import { isFTS } from "@/utils/statusInfo";
 import { QueueRowInfo } from "../utils/queueState";
@@ -6,9 +6,6 @@ import { QueueRunInfo } from "@shared/api";
 
 export function useQueueItemProcessing(basicZIndex: number) {
     const { queue, totalQueueItems } = useAppSelector((state) => state.queue);
-    const [loadedMediaRunId, setLoadedMediaRunId] = useState<string | null>(
-        null,
-    );
 
     const createBaseRow = useCallback(
         (run: QueueRunInfo, index: number): QueueRowInfo => ({
@@ -17,9 +14,7 @@ export function useQueueItemProcessing(basicZIndex: number) {
             bottom: 0,
             right: 0,
             isFeatured: false,
-            isFeaturedRunMediaLoaded: false,
             isFts: isFTS(run),
-            setIsFeaturedRunMediaLoaded: null,
         }),
         [basicZIndex, totalQueueItems],
     );
@@ -33,10 +28,6 @@ export function useQueueItemProcessing(basicZIndex: number) {
 
             if ((run.featuredRunMedia?.length ?? 0) > 0) {
                 row.isFeatured = true;
-                row.isFeaturedRunMediaLoaded = loadedMediaRunId === run.id;
-                row.setIsFeaturedRunMediaLoaded = (isLoaded) => {
-                    setLoadedMediaRunId(isLoaded ? run.id : null);
-                };
                 featured = row;
             } else {
                 processingQueue.push(row);
@@ -47,7 +38,6 @@ export function useQueueItemProcessing(basicZIndex: number) {
             originalQueue: queue,
             processingQueue,
             featured,
-            loadedMediaRunId,
         };
-    }, [queue, createBaseRow, loadedMediaRunId]);
+    }, [queue, createBaseRow]);
 }

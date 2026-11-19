@@ -1,73 +1,99 @@
-## forceWidgets
+# Overlay controls
 
-You can pass forceWidgets query params to force which widgets to show on the screen regardless of what's currently
-showing from the admin interface.
+## Featured runs and reaction videos
 
-Examples: 
-- `http://host/overlay?forceWidgets=[{%22type%22:%22QueueWidget%22,%22widgetId%22:%22queue%22,%widgetLocationId%22:%22queue%22,%22settings%22:{}}]`  
-   show only queue
+In Analytics, select a submission and choose a Featured run media source. The queue displays the first media item for that source. Selecting another Featured run replaces the current selection; selecting the same reaction again starts a fresh playback.
 
+A featured reaction video plays once. When playback ends, the complete card, including the submission row, slides out and fades before it is unmounted. Both queue orientations use `QUEUE_ROW_FEATURED_RUN_APPEAR_TIME` for the entrance and exit duration. A new selection during the exit starts the new card immediately. Buffering and loading errors do not count as playback completion. Other media uses retain their existing looping behavior.
 
-- `https://host/overlay?forceWidgets=[{"type":"ScoreboardWidget","widgetId":"scoreboard","widgetLocationId":"scoreboard","settings":{"isInfinite":true,"startFromRow":1,"optimismLevel":"normal","group":"all"}}]`
+Playback completion hides the card in the current overlay page. Analytics retains the Featured status until it is manually hidden, replaced, or expires. The backend checks expiration every second and then clears both the Analytics and queue Featured states. The submission returns to normal queue retention rules.
 
-- `https://host/overlay?noStatus&forceWidgets=[{"type":"QueueWidget","widgetId":"queue","widgetLocationId":"customQueue","settings":{"horizontal":%20true}},{"type":"TickerWidget","widgetId":"ticker","widgetLocationId":"customTicker","statisticsId":"ticker","settings":{}}]&forceVisualConfig={"QUEUE_BACKGROUND_COLOR":"%234C83C300","QUEUE_ROW_BACKGROUND":"%234C83C3","QUEUE_TITLE":"","CONTEST_NAME":"","WIDGET_POSITIONS":{"customQueue":{"positionX":16,"positionY":832,"sizeX":1888,"sizeY":168},"customTicker":{"positionX":16,"positionY":1016,"sizeX":1888,"sizeY":48}}}`
+Set the display limit in `advanced.json`:
 
-## forceVisualConfig
+```json
+[
+  {
+    "type": "overrideQueue",
+    "featuredRunWaitTimeSeconds": 60
+  }
+]
+```
 
-You can pass forces visual config using the forceVisualConfig 
+The default limit is 60 seconds from each successful selection, measured in wall-clock time even after the contest has finished. Selecting another run or selecting the same run again restarts the limit. Set it longer than the video if the entire clip should play: reaching the limit also closes videos that are still playing.
 
-Examples:
-- `http://host/overelay?forceVisualConfig=`
+The completed-playback state lives in the current overlay page. Ordinary submission updates and repeated queue snapshots preserve it. Refreshing or opening another overlay before expiration plays the currently selected reaction again. Playback completion does not require the overlay to authenticate to the administration API.
 
+## Force widgets
 
-## onlyWidgets
-You can pass onlyWidgets query params to show only the widgets that are passed in the query params by their id.
+The `forceWidgets` query parameter selects widgets independently of their visibility in the administration interface. Its value is a JSON array, URL-encoded when constructing a browser-source URL.
 
-Examples:
-- `http://host/overlay?onlyWidgets=queue`  
-   show only queue
-- `http://host/overlay?onlyWidgets=teamViewBottomRight,teamViewBottomLeft`  
-   show only bottom team views
+Show only the queue:
 
-## visualConfigScene
+```text
+http://host/overlay?forceWidgets=[{"type":"QueueWidget","widgetId":"queue","widgetLocationId":"queue","settings":{}}]
+```
 
-Visual config can declare named partial configs in the `SCENES` field, and you can pick them from the url
-with the `visualConfigScene` query param. That's a way to keep several looks of the same contest in one
-config file, instead of pasting big blobs into `forceVisualConfig` in every OBS browser source.
+Show an infinite scoreboard:
 
-Scenes are applied after the visual config file, but before `forceVisualConfig`, so a value set in
-`forceVisualConfig` still wins over the selected scenes. 
+```text
+https://host/overlay?forceWidgets=[{"type":"ScoreboardWidget","widgetId":"scoreboard","widgetLocationId":"scoreboard","settings":{"isInfinite":true,"startFromRow":1,"optimismLevel":"normal","group":"all"}}]
+```
 
-Scenes are chainable: a scene can declare `SCENES` of its own, and dot separated names in the query param
-select a chain of them. Several chains can be applied at once, comma separated, left to right.
+Combine a horizontal queue and ticker with custom positions and colors:
 
-Example visual config:
+```text
+https://host/overlay?noStatus&forceWidgets=[{"type":"QueueWidget","widgetId":"queue","widgetLocationId":"customQueue","settings":{"horizontal":true}},{"type":"TickerWidget","widgetId":"ticker","widgetLocationId":"customTicker","statisticsId":"ticker","settings":{}}]&forceVisualConfig={"QUEUE_BACKGROUND_COLOR":"%234C83C300","QUEUE_ROW_BACKGROUND":"%234C83C3","QUEUE_TITLE":"","CONTEST_NAME":"","WIDGET_POSITIONS":{"customQueue":{"positionX":16,"positionY":832,"sizeX":1888,"sizeY":168},"customTicker":{"positionX":16,"positionY":1016,"sizeX":1888,"sizeY":48}}}
+```
 
-```jsonc
+## Override visual configuration
+
+The `forceVisualConfig` parameter accepts a partial visual configuration as JSON. It overrides the loaded configuration and selected scenes for this overlay page.
+
+```text
+http://host/overlay?forceVisualConfig={"QUEUE_TITLE":"Submissions"}
+```
+
+## Filter visible widgets
+
+The `onlyWidgets` parameter filters widgets by their IDs. It does not force hidden widgets to appear.
+
+```text
+http://host/overlay?onlyWidgets=queue
+http://host/overlay?onlyWidgets=teamViewBottomRight,teamViewBottomLeft
+```
+
+## Select visual scenes
+
+Declare named partial configurations in `SCENES` to reuse appearances across OBS browser sources. Select a scene with the `visualConfigScene` query parameter.
+
+Scenes apply after the visual configuration file and before `forceVisualConfig`. A scene may contain nested `SCENES`; dot-separated names select a nested chain. Comma-separated chains apply from left to right.
+
+```json
 {
-    "CONTEST_COLOR": "#4C83C3",
-    "SCENES": {
-        "dark": {
-            "GLOBAL_BACKGROUND_COLOR": "#000000",
-            "SCENES": {
-                "leftQueue": {
-                    "WIDGET_POSITIONS": {
-                        "queue": { "positionX": 0, "positionY": 0, "sizeX": 384, "sizeY": 1080 }
-                    }
-                }
+  "CONTEST_COLOR": "#4C83C3",
+  "SCENES": {
+    "dark": {
+      "GLOBAL_BACKGROUND_COLOR": "#000000",
+      "SCENES": {
+        "leftQueue": {
+          "WIDGET_POSITIONS": {
+            "queue": {
+              "positionX": 0,
+              "positionY": 0,
+              "sizeX": 384,
+              "sizeY": 1080
             }
-        },
-        "noCaption": {
-            "CONTEST_CAPTION": ""
+          }
         }
+      }
+    },
+    "noCaption": {
+      "CONTEST_CAPTION": ""
     }
+  }
 }
 ```
 
-Examples:
-- `http://host/overlay?visualConfigScene=dark`
-   black background
-- `http://host/overlay?visualConfigScene=dark.leftQueue`
-   black background and the queue moved to the left
-- `http://host/overlay?visualConfigScene=dark,noCaption`
-   black background and no caption
+- `http://host/overlay?visualConfigScene=dark` selects a black background.
+- `http://host/overlay?visualConfigScene=dark.leftQueue` also moves the queue to the left.
+- `http://host/overlay?visualConfigScene=dark,noCaption` combines the black background with an empty caption.

@@ -13,7 +13,7 @@ import kotlin.time.Duration
  *
  * @param waitTime Time in the queue for regular run after it was tested.
  * @param firstToSolveWaitTime Time in the queue for first-to-solve run after it was tested.
- * @param featuredRunWaitTime Time in the queue for featured run after it was tested or set featured, whatever is later.
+ * @param featuredRunWaitTime Wall-clock display limit for a featured run, measured from each successful selection.
  * @param inProgressRunWaitTime Time in the queue for in-progress run after last progress update.
  * @param maxQueueSize Maximal number of runs in queue.
  * @param maxUntestedRun Maximal number of in-progress runs in queue
